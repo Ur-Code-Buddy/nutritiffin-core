@@ -46,11 +46,19 @@ export class AuthService {
       throw new ConflictException('Username already exists');
     }
 
-    // We could add explicit checks for email/phone here if we want specific error messages
-    // or let the DB unique constraint throw (which might need a filter to be user-friendly).
-    // For better UX, let's try to find by email/phone if we add those methods to UsersService,
-    // or just proceed and handle the error.
-    // Given constraints, let's update UsersService to find by email/phone for cleaner validation.
+    const existingEmail = await this.usersService.findOneByEmail(
+      registerDto.email,
+    );
+    if (existingEmail) {
+      throw new ConflictException('Email already exists');
+    }
+
+    const existingPhone = await this.usersService.findOneByPhoneNumber(
+      registerDto.phone_number,
+    );
+    if (existingPhone) {
+      throw new ConflictException('Phone number already exists');
+    }
 
     const salt = await bcrypt.genSalt();
     const passwordHash = await bcrypt.hash(registerDto.password, salt);
@@ -67,11 +75,14 @@ export class AuthService {
       );
     } catch (error) {
       if (error.code === '23505') {
-        // Postgres unique_violation
-        if (error.detail.includes('email')) {
+        // Postgres unique_violation safely checked
+        const detail = error.detail || '';
+        if (detail.includes('email')) {
           throw new ConflictException('Email already exists');
-        } else if (error.detail.includes('phone_number')) {
+        } else if (detail.includes('phone_number')) {
           throw new ConflictException('Phone number already exists');
+        } else if (detail.includes('username')) {
+          throw new ConflictException('Username already exists');
         }
       }
       throw error;

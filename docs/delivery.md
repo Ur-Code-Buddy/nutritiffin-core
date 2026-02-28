@@ -1,71 +1,115 @@
 # Delivery API Documentation
 
-## Base URL
+## Base URLs
 
-Production:
-https://backend.v1.nutritiffin.com
-
-Local Development:
-http://localhost:3000
+- **Production**: `https://backend.v1.nutritiffin.com`
+- **Local**: `http://localhost:3000`
 
 ---
 
 ## Authentication
 
-Protected routes require:
+All endpoints require a specific **Header**:
+`Authorization: Bearer <JWT_TOKEN>`
 
-Authorization: Bearer <JWT_TOKEN>
-
-Only users with role `DELIVERY_DRIVER` can access these endpoints.
-
----
-
-# Delivery Module Overview
-
-The Delivery module allows:
-
-- Drivers to finding available orders ready for pickup
-- Drivers to accept orders
-- Drivers to mark orders as delivered
-- Viewing delivery history
+**User Role Required**: `DELIVERY_DRIVER`
 
 ---
 
-# 1. View Available Deliveries
+## Data Enums
 
-Endpoint:
-GET /deliveries/available
-
-Role Required:
-DELIVERY_DRIVER
-
-Headers:
-Authorization: Bearer <JWT_TOKEN>
-
-Returns a list of orders that are `ACCEPTED` by the kitchen but have no driver assigned.
+### Order Status
+The `status` field in responses can be one of:
+- `PENDING`: Created by client, not yet accepted by kitchen.
+- `ACCEPTED`: Accepted by kitchen, waiting for driver (Visible in Available).
+- `REJECTED`: Rejected by kitchen.
+- `OUT_FOR_DELIVERY`: Picked up by driver.
+- `DELIVERED`: Successfully delivered.
+- `CANCELLED`: Cancelled by user.
 
 ---
 
-## Success Response (200 OK)
+## Endpoints
+
+### 1. Get Available Deliveries
+
+Retrieves a list of orders that are ready for pickup. These orders have been accepted by the kitchen but have no driver assigned yet.
+
+- **URL**: `/deliveries/available`
+- **Method**: `GET`
+- **Description**: Use this to show the "Job Board" or "Available Orders" list to the driver.
+- **Notes**: 
+  - **Client details (address/phone) are HIDDEN** in this view to protect privacy until the order is accepted.
+  - Returns orders sorted by creation date (Oldest first).
+
+**Success Response (200 OK):**
 
 ```json
 [
   {
-    "id": "order-uuid-1234-5678",
+    "id": "550e8400-e29b-41d4-a716-446655440000",
     "status": "ACCEPTED",
     "scheduled_for": "2026-02-16",
-    "total_price": 250.00,
+    "total_price": 450.00,
     "kitchen": {
-      "id": "kitchen-uuid",
-      "name": "Rahul's Home Kitchen",
-      "phone": "23872393834",
-      "address": "221B Baker Street, Mumbai"
+      "id": "kitchen-uuid-123",
+      "name": "Spicy Treats Kitchen",
+      "phone": "9876543210",
+      "address": "123 Culinary Ave, Food City"
     },
     "items": [
       {
-        "food_item_id": "item-uuid",
-        "name": "Pizza",
-        "quantity": 2
+        "food_item_id": "item-uuid-001",
+        "name": "Chicken Biryani",
+        "image_url": "https://s3.aws.com/...",
+        "quantity": 2,
+        "snapshot_price": 225.00
+      }
+    ]
+    // Note: 'client' and 'delivery_driver' fields are null/undefined here
+  }
+]
+```
+
+---
+
+### 2. Get My Active Deliveries
+
+Retrieves all orders where the current user is assigned as the driver.
+
+- **URL**: `/deliveries/my-orders`
+- **Method**: `GET`
+- **Description**: Use this to show the "My Tasks" or "Current Deliveries" list.
+- **Notes**: 
+  - **Client details ARE INCLUDED** here (Name, Phone, Address) so the driver knows where to deliver.
+
+**Success Response (200 OK):**
+
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "status": "OUT_FOR_DELIVERY",
+    "scheduled_for": "2026-02-16",
+    "total_price": 450.00,
+    "kitchen": {
+      "id": "kitchen-uuid-123",
+      "name": "Spicy Treats Kitchen",
+      "phone": "9876543210",
+      "address": "123 Culinary Ave, Food City"
+    },
+    "client": {
+      "id": "client-uuid-456",
+      "name": "Rahul Sharma",
+      "phone_number": "9988776655",
+      "address": "Flat 402, Sunshine Apts, Metro City"
+    },
+    "items": [
+      {
+        "food_item_id": "item-uuid-001",
+        "name": "Chicken Biryani",
+        "quantity": 2,
+        "snapshot_price": 225.00
       }
     ]
   }
@@ -74,140 +118,49 @@ Returns a list of orders that are `ACCEPTED` by the kitchen but have no driver a
 
 ---
 
-# 2. View My Assignments
+### 3. Get Order Details
 
-Endpoint:
-GET /deliveries/my-orders
+Retrieves full details for a specific order.
 
-Role Required:
-DELIVERY_DRIVER
+- **URL**: `/deliveries/:id`
+- **Method**: `GET`
+- **Path Param**: `id` (UUID of the order)
+- **Description**: View single order details.
 
-Headers:
-Authorization: Bearer <JWT_TOKEN>
-
-Returns a list of orders assigned to the authenticated driver.
-
----
-
-## Success Response (200 OK)
-
-```json
-[
-  {
-    "id": "order-uuid-1234-5678",
-    "status": "OUT_FOR_DELIVERY",
-    "scheduled_for": "2026-02-16",
-    "total_price": 250.00,
-    "kitchen": {
-      "id": "kitchen-uuid",
-      "name": "Rahul's Home Kitchen",
-      "phone": "23872393834",
-      "address": "221B Baker Street, Mumbai"
-    },
-    "client": {
-      "id": "client-uuid",
-      "name": "John Doe",
-      "phone_number": "9876543210",
-      "address": "123 Main St"
-    },
-    "items": [ ... ]
-  }
-]
-```
+**Success Response (200 OK):**
+*Same structure as "My Active Deliveries"*
 
 ---
 
-# 3. Accept Delivery
+### 4. Accept Delivery
 
-Endpoint:
-PATCH /deliveries/:id/accept
+Assigns the current driver to the order and changes status to `OUT_FOR_DELIVERY`.
 
-Role Required:
-DELIVERY_DRIVER
+- **URL**: `/deliveries/:id/accept`
+- **Method**: `PATCH`
+- **Path Param**: `id` (UUID of the order)
+- **Description**: Call this when the driver swipes "Accept".
 
-Headers:
-Authorization: Bearer <JWT_TOKEN>
+**Success Response (200 OK):**
+Returns the updated Order object (including client details now).
 
-Assigns the order to the authenticated driver and updates status to `OUT_FOR_DELIVERY`.
-
----
-
-## Success Response (200 OK)
-
-```json
-{
-  "id": "order-uuid-1234-5678",
-  "status": "OUT_FOR_DELIVERY",
-  "total_price": 250.00,
-  "kitchen": { ... },
-  "client": { ... },
-  "items": [ ... ],
-  "delivery_driver": {
-    "id": "driver-uuid-9876",
-    "name": "Driver Name",
-    "phone_number": "9998887776"
-  }
-}
-```
+**Error Responses:**
+- `400 Bad Request`: If order is not in `ACCEPTED` state (e.g. already taken by someone else).
+- `404 Not Found`: If order ID is invalid.
 
 ---
 
-## Error Responses
+### 5. Finish Delivery
 
-400 Bad Request (If order is not ACCEPTED or already assigned)  
-404 Not Found  
+Marks the order as `DELIVERED`.
 
----
+- **URL**: `/deliveries/:id/finish`
+- **Method**: `PATCH`
+- **Path Param**: `id` (UUID of the order)
+- **Description**: Call this when the driver swipes "Complete Delivery".
 
-# 4. Finish Delivery
+**Success Response (200 OK):**
+Returns the updated Order object with status `DELIVERED`.
 
-Endpoint:
-PATCH /deliveries/:id/finish
-
-Role Required:
-DELIVERY_DRIVER
-
-Headers:
-Authorization: Bearer <JWT_TOKEN>
-
-Marks the order as `DELIVERED`. Driver must be the one assigned.
-
----
-
-## Success Response (200 OK)
-
-```json
-{
-  "id": "order-uuid-1234-5678",
-  "status": "DELIVERED",
-  "total_price": 250.00,
-  "kitchen": { ... },
-  "client": { ... },
-  "items": [ ... ],
-  "delivery_driver": { ... }
-}
-```
-
----
-
-## Error Responses
-
-400 Bad Request (If order is not OUT_FOR_DELIVERY or assigned to another driver)  
-404 Not Found  
-
----
-
-# Business Rules
-
-1. Drivers can only pick up orders that are in `ACCEPTED` status.
-2. Only one driver can be assigned to an order.
-3. Once accepted, the status moves to `OUT_FOR_DELIVERY`.
-4. Once delivered, the status moves to `DELIVERED`.
-
----
-
-# Security Notes
-
-- JWT authentication enforced.
-- Drivers cannot modify orders they are not assigned to (except to accept available ones).
-- Address details are provided only for assigned deliveries.
+**Error Responses:**
+- `400 Bad Request`: If order is not `OUT_FOR_DELIVERY` or assigned to a different driver.
