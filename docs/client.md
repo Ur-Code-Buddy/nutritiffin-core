@@ -50,7 +50,7 @@ Validation Rules:
 - email required, valid format, unique (but not returned in response)
 - phone_number required, unique
 - password minimum 6 characters
-- role must be CLIENT
+- role must be `CLIENT` (Note: `ADMIN` registration requires the `admin_access_pass` field)
 
 ---
 
@@ -73,6 +73,29 @@ Success Response:
 "username": "client_user01",
 "role": "CLIENT"
 }
+}
+
+---
+
+1.3 Get My Profile
+
+GET /users/me
+
+Returns the authenticated user's profile and current credit balance.
+
+Success Response:
+{
+"id": "8f6fdea3-5971-4030-aa92-5d5448d981d0",
+"username": "client_user01",
+"name": "Rahul Sharma",
+"email": "rahul.sharma01@example.com",
+"phone_number": "+919876543210",
+"address": "123 MG Road, Pondicherry, Puducherry, India",
+"role": "CLIENT",
+"credits": 50,
+"is_active": true,
+"created_at": "2026-02-15T06:10:16.854Z",
+"updated_at": "2026-02-15T06:10:16.854Z"
 }
 
 ---

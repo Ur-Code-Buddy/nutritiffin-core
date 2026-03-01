@@ -74,6 +74,8 @@ We maintain detailed documentation for each core module:
 
 ## ✨ Features Spotlight
 
+-   **💳 Secure Credit System**: Built-in integer-based Rupee credit wallets. Utilizes TypeORM transaction blocks with pessimistic row-level locking to guarantee safe balance operations under high concurrency.
+-   **👑 Admin Management Tools**: Secure endpoints allowing Admins to manage user access, securely alter credit allocations, and monitor the user base.
 -   **🔐 Role-Based Access Control (RBAC)**: Secure separation of duties between Admins, Owners, Clients, and Drivers using Guards and Decorators.
 -   **📅 Smart Availability**: Menus automatically reset based on daily limits and operating hours.
 -   **🔄 Order States**: Finite state machine implementation for orders (`PENDING` -> `ACCEPTED` -> `OUT_FOR_DELIVERY` -> `DELIVERED` -> `CANCELLED`).
@@ -106,7 +108,7 @@ The easiest way to run the full stack (API + DB + Redis):
     ```bash
     docker-compose up --build
     ```
-    The API will be available at `http://localhost:3000`.
+    The API will be available at `https://backend.v1.nutritiffin.com`.
 
 ### Running Tests
 We emphasize quality code. Run our comprehensive test suite:

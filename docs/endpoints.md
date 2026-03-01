@@ -21,7 +21,8 @@ Creates a new user account.
 | `phone_number` | string | **Yes** | Phone number (unique). |
 | `address` | string | **Yes** | Physical address of the user. |
 | `password` | string | **Yes** | Password (min 6 characters). |
-| `role` | enum | **Yes** | User role. Values: `CLIENT`, `KITCHEN_OWNER`. |
+| `role` | enum | **Yes** | User role. Values: `CLIENT`, `KITCHEN_OWNER`, `DELIVERY_DRIVER`, `ADMIN`. |
+| `admin_access_pass` | string | No | Required only if `role` is `ADMIN`. |
 
 ### Login
 **POST** `/auth/login`
@@ -33,6 +34,52 @@ Authenticates a user and returns a JWT token.
 | :--- | :--- | :--- | :--- |
 | `username` | string | **Yes** | Registered username. |
 | `password` | string | **Yes** | User password. |
+
+---
+
+## Users & Administration (`/users` & `/admin`)
+
+### Get Current User Profile
+**GET** `/users/me`
+**Role Required:** Authenticated User
+
+Retrieves the profile of the currently logged-in user, including their Rupee `credits` balance.
+
+### Get All Users
+**GET** `/admin/users`
+**Role Required:** `ADMIN`
+
+Retrieves a list of all registered users and their credit balances.
+
+### Add User Credits
+**POST** `/admin/credits/add`
+**Role Required:** `ADMIN`
+
+Adds integer credits (Rupees) to a specific user's account.
+**Request Body:**
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `userId` | string | **Yes** | UUID of the user. |
+| `amount` | number | **Yes** | Integer amount of Rupees to add. |
+
+### Deduct User Credits
+**POST** `/admin/credits/deduct`
+**Role Required:** `ADMIN`
+
+Deducts integer credits (Rupees) from a specific user's account. Fails if user has insufficient credits.
+**Request Body:** Same as Add User Credits.
+
+### Disable User
+**POST** `/admin/users/:id/disable`
+**Role Required:** `ADMIN`
+
+Deactivates a user account (Client, Kitchen Owner, or Delivery Driver).
+
+### Enable User
+**POST** `/admin/users/:id/enable`
+**Role Required:** `ADMIN`
+
+Reactivates a previously disabled user account.
 
 ---
 

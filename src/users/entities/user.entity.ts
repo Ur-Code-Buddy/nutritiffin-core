@@ -40,6 +40,12 @@ export class User {
   })
   role: UserRole;
 
+  @Column({ type: 'int', default: 0 })
+  credits: number;
+
+  @Column({ default: true })
+  is_active: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

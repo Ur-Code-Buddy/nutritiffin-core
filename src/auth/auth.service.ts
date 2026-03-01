@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
 import { User } from '../users/entities/user.entity';
+import { UserRole } from '../users/user.role.enum';
 
 @Injectable()
 export class AuthService {
@@ -39,6 +40,13 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto): Promise<User> {
+    if (registerDto.role === UserRole.ADMIN) {
+      const adminPass = process.env.ADMIN_ACCESS_PASS;
+      if (!registerDto.admin_access_pass || registerDto.admin_access_pass !== adminPass) {
+        throw new UnauthorizedException('Invalid or missing admin access pass');
+      }
+    }
+
     const existingUser = await this.usersService.findOneByUsername(
       registerDto.username,
     );
