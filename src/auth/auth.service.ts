@@ -38,8 +38,9 @@ async function sendVerificationEmail(email: string, token: string): Promise<void
       to: [{ email }],
     });
     console.log(`[EMAIL SENT] Verification email sent to ${email}`);
-  } catch (error) {
-    console.error(`[EMAIL ERROR] Failed to send verification email to ${email}`, error?.response?.body || error);
+  } catch (error: any) {
+    const errorDetails = error?.body || error?.response?.body || error;
+    console.error(`[EMAIL ERROR] Failed to send verification email to ${email}`, JSON.stringify(errorDetails, null, 2));
   }
 }
 
