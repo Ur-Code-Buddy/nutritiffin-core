@@ -241,7 +241,6 @@ export class AuthService {
         registerDto.email,
         registerDto.phone_number,
         registerDto.address,
-        registerDto.pincode,
       );
     } catch (error) {
       if (error.code === '23505') {
