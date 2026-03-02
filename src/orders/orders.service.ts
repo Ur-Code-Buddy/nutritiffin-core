@@ -3,6 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -24,7 +25,8 @@ export class OrdersService {
     private foodItemRepo: Repository<FoodItem>,
     @InjectQueue('orders')
     private ordersQueue: Queue,
-  ) {}
+    private configService: ConfigService,
+  ) { }
 
   async create(clientId: string, dto: CreateOrderDto) {
     // 1. Validate "1-3 Days in Advance"
@@ -109,14 +111,28 @@ export class OrdersService {
       totalPrice += Number(foodItem.price) * itemDto.quantity;
     }
 
-    // 3. Create Order
+    // 3. Calculate Fees
+    const platformFees = Number(this.configService.get<number>('PLATFORM_FEES', 10));
+    const deliveryFees = Number(this.configService.get<number>('DELIVERY_FEES', 20));
+    const kitchenFeesPercent = Number(this.configService.get<number>('KITCHEN_FEES', 15));
+
+    // Kitchen fees = percentage of items subtotal (deducted from kitchen's payout)
+    const kitchenFees = parseFloat(((kitchenFeesPercent / 100) * totalPrice).toFixed(2));
+
+    // Client pays: items subtotal + platform fees + delivery fees
+    const grandTotal = parseFloat((totalPrice + platformFees + deliveryFees).toFixed(2));
+
+    // 4. Create Order
     const order = this.ordersRepo.create({
       client_id: clientId,
       kitchen_id: dto.kitchen_id,
       scheduled_for: dto.scheduled_for,
       status: OrderStatus.PENDING,
       items: orderItems,
-      total_price: totalPrice,
+      total_price: grandTotal,
+      platform_fees: platformFees,
+      delivery_fees: deliveryFees,
+      kitchen_fees: kitchenFees,
     });
 
     const savedOrder = await this.ordersRepo.save(order);

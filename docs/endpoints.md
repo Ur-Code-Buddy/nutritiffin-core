@@ -428,7 +428,21 @@ Retrieves a list of orders assigned to the authenticated driver.
 **PATCH** `/deliveries/:id/accept`
 **Role Required:** `DELIVERY_DRIVER`
 
-Assigns the order to the driver and updates status to `OUT_FOR_DELIVERY`.
+Assigns the order to the driver.
+
+### Pick Up Delivery
+
+**PATCH** `/deliveries/:id/pick-up`
+**Role Required:** `DELIVERY_DRIVER`
+
+Updates status to `PICKED_UP`.
+
+### Out For Delivery
+
+**PATCH** `/deliveries/:id/out-for-delivery`
+**Role Required:** `DELIVERY_DRIVER`
+
+Updates status to `OUT_FOR_DELIVERY`.
 
 ### Finish Delivery
 

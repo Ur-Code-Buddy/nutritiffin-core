@@ -15,6 +15,7 @@ import { OrderItem } from './order-item.entity';
 export enum OrderStatus {
   PENDING = 'PENDING',
   ACCEPTED = 'ACCEPTED',
+  PICKED_UP = 'PICKED_UP',
   OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY',
   DELIVERED = 'DELIVERED',
   REJECTED = 'REJECTED',
@@ -63,6 +64,15 @@ export class Order {
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   total_price: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  platform_fees: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  delivery_fees: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  kitchen_fees: number;
 
   @Column({ nullable: true })
   accepted_at: Date;

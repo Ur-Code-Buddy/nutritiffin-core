@@ -15,7 +15,7 @@ export class DeliveriesService {
     private ordersRepository: Repository<Order>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
-  ) {}
+  ) { }
 
   async findAllAvailable() {
     const orders = await this.ordersRepository.find({
@@ -81,8 +81,38 @@ export class DeliveriesService {
     }
 
     order.delivery_driver_id = driverId;
-    order.status = OrderStatus.OUT_FOR_DELIVERY;
+    return this.ordersRepository.save(order);
+  }
+
+  async pickUpDelivery(id: string, driverId: string) {
+    const order = await this.findOne(id);
+
+    if (order.delivery_driver_id !== driverId) {
+      throw new BadRequestException('You are not the driver for this order');
+    }
+
+    if (order.status !== OrderStatus.ACCEPTED) {
+      throw new BadRequestException('Order cannot be picked up from current status');
+    }
+
+    order.status = OrderStatus.PICKED_UP;
     order.picked_up_at = new Date();
+
+    return this.ordersRepository.save(order);
+  }
+
+  async outForDelivery(id: string, driverId: string) {
+    const order = await this.findOne(id);
+
+    if (order.delivery_driver_id !== driverId) {
+      throw new BadRequestException('You are not the driver for this order');
+    }
+
+    if (order.status !== OrderStatus.PICKED_UP) {
+      throw new BadRequestException('Order must be picked up before going out for delivery');
+    }
+
+    order.status = OrderStatus.OUT_FOR_DELIVERY;
 
     return this.ordersRepository.save(order);
   }

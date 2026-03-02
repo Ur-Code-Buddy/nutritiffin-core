@@ -21,7 +21,7 @@ export class DeliveriesController {
   constructor(
     private readonly deliveriesService: DeliveriesService,
     private readonly usersService: UsersService,
-  ) {}
+  ) { }
 
   @Get('credits')
   async getCredits(@Request() req: any) {
@@ -44,6 +44,16 @@ export class DeliveriesController {
   @Patch(':id/accept')
   acceptDelivery(@Param('id') id: string, @Request() req: any) {
     return this.deliveriesService.acceptDelivery(id, req.user.userId);
+  }
+
+  @Patch(':id/pick-up')
+  pickUpDelivery(@Param('id') id: string, @Request() req: any) {
+    return this.deliveriesService.pickUpDelivery(id, req.user.userId);
+  }
+
+  @Patch(':id/out-for-delivery')
+  outForDelivery(@Param('id') id: string, @Request() req: any) {
+    return this.deliveriesService.outForDelivery(id, req.user.userId);
   }
 
   @Patch(':id/finish')

@@ -25,7 +25,8 @@ The `status` field in responses can be one of:
 - `PENDING`: Created by client, not yet accepted by kitchen.
 - `ACCEPTED`: Accepted by kitchen, waiting for driver (Visible in Available).
 - `REJECTED`: Rejected by kitchen.
-- `OUT_FOR_DELIVERY`: Picked up by driver.
+- `PICKED_UP`: Picked up by driver from the kitchen.
+- `OUT_FOR_DELIVERY`: On the way to the client.
 - `DELIVERED`: Successfully delivered.
 - `CANCELLED`: Cancelled by user.
 
@@ -154,7 +155,7 @@ _Same structure as "My Active Deliveries"_
 
 ### 4. Accept Delivery
 
-Assigns the current driver to the order and changes status to `OUT_FOR_DELIVERY`.
+Assigns the current driver to the order. The status remains `ACCEPTED`.
 
 - **URL**: `/deliveries/:id/accept`
 - **Method**: `PATCH`
@@ -171,7 +172,43 @@ Returns the updated Order object (including client details now).
 
 ---
 
-### 5. Finish Delivery
+### 5. Pick Up Delivery
+
+Marks the order as `PICKED_UP`.
+
+- **URL**: `/deliveries/:id/pick-up`
+- **Method**: `PATCH`
+- **Path Param**: `id` (UUID of the order)
+- **Description**: Call this when the driver arrives at the kitchen and picks up the order.
+
+**Success Response (200 OK):**
+Returns the updated Order object with status `PICKED_UP`.
+
+**Error Responses:**
+
+- `400 Bad Request`: If order is not `ACCEPTED` or assigned to a different driver.
+
+---
+
+### 6. Out For Delivery
+
+Marks the order as `OUT_FOR_DELIVERY`.
+
+- **URL**: `/deliveries/:id/out-for-delivery`
+- **Method**: `PATCH`
+- **Path Param**: `id` (UUID of the order)
+- **Description**: Call this when the driver leaves the kitchen towards the client.
+
+**Success Response (200 OK):**
+Returns the updated Order object with status `OUT_FOR_DELIVERY`.
+
+**Error Responses:**
+
+- `400 Bad Request`: If order is not `PICKED_UP` or assigned to a different driver.
+
+---
+
+### 7. Finish Delivery
 
 Marks the order as `DELIVERED`.
 

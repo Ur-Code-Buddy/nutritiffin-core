@@ -15,6 +15,8 @@ export class ResponseMapper {
     dto.status = order.status;
     dto.scheduled_for = order.scheduled_for;
     dto.total_price = Number(order.total_price);
+    dto.platform_fees = Number(order.platform_fees);
+    dto.delivery_fees = Number(order.delivery_fees);
 
     if (order.items) {
       dto.items = order.items.map((item) => {
@@ -70,6 +72,8 @@ export class ResponseMapper {
       clientDto.address = order.client.address;
       dto.client = clientDto;
     }
+
+    dto.kitchen_fees = Number(order.kitchen_fees);
 
     return dto;
   }

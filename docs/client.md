@@ -261,7 +261,9 @@ Success Response:
 "kitchen_id": "c282d569-e3a9-4820-ad35-d4093a8b96d8",
 "status": "PENDING",
 "scheduled_for": "2026-02-16",
-"total_price": 250.00,
+"total_price": 280.00,
+"platform_fees": 10.00,
+"delivery_fees": 20.00,
 "items": [
 {
 "id": "305f804b-5161-4482-bce1-6fa2e5034d95",
@@ -280,6 +282,8 @@ Success Response:
 "updated_at": "2026-02-15T06:43:41.612Z"
 }
 
+Note: total_price = items subtotal + platform_fees + delivery_fees
+
 ---
 
 4.2 Get My Orders
@@ -294,7 +298,9 @@ Success Response:
 "id": "d0b9fa9b-66c2-4c9b-9647-91c0019fdc1f",
 "status": "ACCEPTED",
 "scheduled_for": "2026-02-16",
-"total_price": 250.00,
+"total_price": 280.00,
+"platform_fees": 10.00,
+"delivery_fees": 20.00,
 "items": [
 {
 "food_item_id": "aebf865c-abf8-405b-9e5b-ab4fce869084",
@@ -341,7 +347,9 @@ Success Response:
 "id": "d0b9fa9b-66c2-4c9b-9647-91c0019fdc1f",
 "status": "ACCEPTED",
 "scheduled_for": "2026-02-16",
-"total_price": 250.00,
+"total_price": 280.00,
+"platform_fees": 10.00,
+"delivery_fees": 20.00,
 "items": [
 {
 "food_item_id": "aebf865c-abf8-405b-9e5b-ab4fce869084",
@@ -380,8 +388,25 @@ Possible status values:
 - PENDING
 - ACCEPTED
 - REJECTED
+- PICKED_UP
 - OUT_FOR_DELIVERY
 - DELIVERED
+
+---
+
+## ORDER FEES
+
+Every order includes the following additional charges:
+
+| Fee | Type | Amount | Description |
+|-----|------|--------|-------------|
+| platform_fees | Fixed | ₹10 | Platform usage fee |
+| delivery_fees | Fixed | ₹20 | Delivery charge |
+
+total_price = items subtotal + platform_fees + delivery_fees
+
+Both fees are included in the total_price shown to the client.
+Fee amounts are snapshotted at order creation time.
 
 ---
 

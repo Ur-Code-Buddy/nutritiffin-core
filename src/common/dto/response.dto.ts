@@ -59,6 +59,12 @@ export class BaseOrderViewDTO {
   total_price: number;
 
   @Expose()
+  platform_fees: number;
+
+  @Expose()
+  delivery_fees: number;
+
+  @Expose()
   @Type(() => OrderItemDTO)
   items: OrderItemDTO[];
 
@@ -79,6 +85,9 @@ export class OwnerOrderViewDTO extends BaseOrderViewDTO {
   @Expose()
   @Type(() => UserSummaryDTO)
   client: UserSummaryDTO;
+
+  @Expose()
+  kitchen_fees: number;
 }
 
 export class DriverDeliveryViewDTO extends BaseOrderViewDTO {
