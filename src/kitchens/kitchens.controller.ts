@@ -11,6 +11,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { KitchensService } from './kitchens.service';
+import { UsersService } from '../users/users.service';
 import { CreateKitchenDto } from './dto/create-kitchen.dto';
 import { UpdateKitchenDto } from './dto/update-kitchen.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -20,7 +21,18 @@ import { UserRole } from '../users/user.role.enum';
 
 @Controller('kitchens')
 export class KitchensController {
-  constructor(private readonly kitchensService: KitchensService) {}
+  constructor(
+    private readonly kitchensService: KitchensService,
+    private readonly usersService: UsersService,
+  ) { }
+
+  @Get('credits')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.KITCHEN_OWNER)
+  async getCredits(@Request() req: any) {
+    const user = await this.usersService.findOneById(req.user.userId);
+    return { credits: user ? user.credits : 0 };
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)

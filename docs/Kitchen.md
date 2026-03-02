@@ -268,6 +268,31 @@ Updatable fields:
 
 ---
 
+# 5. Get Kitchen Credits
+
+Endpoint:
+GET /kitchens/credits
+
+Role Required:
+KITCHEN_OWNER
+
+Headers:
+Authorization: Bearer <JWT_TOKEN>
+
+Returns the current credit balance of the authenticated kitchen owner.
+
+---
+
+## Success Response (200 OK)
+
+```json
+{
+  "credits": 500
+}
+```
+
+---
+
 # Business Rules
 
 1. Only users with role KITCHEN_OWNER can create kitchens.

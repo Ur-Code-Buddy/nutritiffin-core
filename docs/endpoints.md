@@ -101,6 +101,12 @@ Creates a new kitchen profile for the authenticated user.
 | `is_active` | boolean | No | Whether the kitchen is active (default: true). |
 | `is_menu_visible` | boolean | No | Whether the menu is visible to users (default: true). |
 
+### Get Kitchen Credits
+**GET** `/kitchens/credits`
+**Role Required:** `KITCHEN_OWNER`
+
+Retrieves the current available credit balance for the authenticated kitchen owner.
+
 ### Get All Kitchens
 **GET** `/kitchens`
 
@@ -288,6 +294,12 @@ Returns a welcome message.
 ---
 
 ## Deliveries (`/deliveries`)
+
+### Get Driver Credits
+**GET** `/deliveries/credits`
+**Role Required:** `DELIVERY_DRIVER`
+
+Retrieves the current available credit balance for the authenticated delivery driver.
 
 ### Get Available Deliveries
 **GET** `/deliveries/available`

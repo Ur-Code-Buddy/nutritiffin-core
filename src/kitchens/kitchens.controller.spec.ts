@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { KitchensController } from './kitchens.controller';
 import { KitchensService } from './kitchens.service';
+import { UsersService } from '../users/users.service';
 
 describe('KitchensController', () => {
   let controller: KitchensController;
@@ -17,6 +18,12 @@ describe('KitchensController', () => {
             findOne: jest.fn(),
             update: jest.fn(),
             remove: jest.fn(),
+          },
+        },
+        {
+          provide: UsersService,
+          useValue: {
+            findOneById: jest.fn(),
           },
         },
       ],

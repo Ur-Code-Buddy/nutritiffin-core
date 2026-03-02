@@ -7,6 +7,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { DeliveriesService } from './deliveries.service';
+import { UsersService } from '../users/users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -17,7 +18,16 @@ import { ResponseMapper } from '../common/utils/response.mapper';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.DELIVERY_DRIVER)
 export class DeliveriesController {
-  constructor(private readonly deliveriesService: DeliveriesService) { }
+  constructor(
+    private readonly deliveriesService: DeliveriesService,
+    private readonly usersService: UsersService,
+  ) { }
+
+  @Get('credits')
+  async getCredits(@Request() req: any) {
+    const user = await this.usersService.findOneById(req.user.userId);
+    return { credits: user ? user.credits : 0 };
+  }
 
   @Get('available')
   async findAllAvailable() {

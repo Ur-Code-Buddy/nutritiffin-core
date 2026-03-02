@@ -31,7 +31,25 @@ The `status` field in responses can be one of:
 
 ## Endpoints
 
-### 1. Get Available Deliveries
+### 1. Get Driver Credits
+
+Retrieves the current available credit balance for the authenticated delivery driver.
+
+- **URL**: `/deliveries/credits`
+- **Method**: `GET`
+- **Description**: Use this to show the driver their current earnings/credits.
+
+**Success Response (200 OK):**
+
+```json
+{
+  "credits": 250
+}
+```
+
+---
+
+### 2. Get Available Deliveries
 
 Retrieves a list of orders that are ready for pickup. These orders have been accepted by the kitchen but have no driver assigned yet.
 

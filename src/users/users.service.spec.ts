@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
+import { DataSource } from 'typeorm';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -14,6 +15,12 @@ describe('UsersService', () => {
             create: jest.fn(),
             save: jest.fn(),
             findOneBy: jest.fn(),
+          },
+        },
+        {
+          provide: DataSource,
+          useValue: {
+            transaction: jest.fn(),
           },
         },
       ],
