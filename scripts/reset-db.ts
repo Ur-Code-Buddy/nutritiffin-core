@@ -39,16 +39,26 @@ async function resetDb() {
     });
 
     try {
+        const isProd = process.env.NODE_ENV === 'production' || (process.env.DB_HOST && process.env.DB_HOST.includes('prod'));
+        if (isProd) {
+            console.error('ERROR: Cannot reset database in a production environment!');
+            process.exit(1);
+        }
+
         await client.connect();
         console.log('Connected to database.');
 
         console.log('Dropping schema public...');
-        await client.query('DROP SCHEMA public CASCADE;');
+        await client.query('DROP SCHEMA IF EXISTS public CASCADE;');
         console.log('Schema public dropped.');
 
         console.log('Creating schema public...');
         await client.query('CREATE SCHEMA public;');
         console.log('Schema public created.');
+
+        console.log('Granting privileges on schema public...');
+        await client.query('GRANT ALL ON SCHEMA public TO public;');
+        console.log('Privileges granted.');
 
         console.log('Database reset complete.');
     } catch (err) {
