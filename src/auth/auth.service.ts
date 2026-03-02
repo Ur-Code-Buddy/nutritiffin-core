@@ -104,7 +104,7 @@ async function sendVerificationEmail(email: string, token: string): Promise<void
               }
             </style>
           </head>
-          <body>
+            <body>
             <div class="container">
               <div class="header">
                 <h1>NutriTiffin</h1>
@@ -112,6 +112,11 @@ async function sendVerificationEmail(email: string, token: string): Promise<void
               <div class="content">
                 <h2 style="color: #333; margin-top: 0;">Verify Your Email Address</h2>
                 <p>Welcome to NutriTiffin! We're thrilled to have you on board. Please verify your email address to activate your account and access all our delicious features.</p>
+
+                <div style="background-color: #fff8e1; border-left: 4px solid #f59e0b; padding: 12px 16px; margin-bottom: 20px; border-radius: 4px; font-size: 14px; color: #555;">
+                  ⚠️ <strong>Security Notice:</strong> This email was sent by <strong>NutriTiffin</strong> from <strong>no-reply@nutritiffin.com</strong>. If you did <em>not</em> create a NutriTiffin account, please ignore this email or <a href="mailto:support@nutritiffin.com" style="color: #f59e0b;">contact our support team</a>.
+                </div>
+
                 <a href="${verificationLink}" class="button">Verify Account</a>
                 
                 <div class="divider"></div>
@@ -123,6 +128,7 @@ async function sendVerificationEmail(email: string, token: string): Promise<void
               </div>
               <div class="footer">
                 <p>This verification link will expire in 24 hours.</p>
+                <p>If you did not request this email, no action is required — simply ignore it.</p>
                 <p>&copy; ${new Date().getFullYear()} NutriTiffin. All rights reserved.</p>
               </div>
             </div>
@@ -235,6 +241,7 @@ export class AuthService {
         registerDto.email,
         registerDto.phone_number,
         registerDto.address,
+        registerDto.pincode,
       );
     } catch (error) {
       if (error.code === '23505') {
