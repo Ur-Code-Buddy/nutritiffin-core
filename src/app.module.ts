@@ -17,6 +17,7 @@ import { UploadModule } from './upload/upload.module';
 import { DeliveriesModule } from './deliveries/deliveries.module';
 import { RedisModule } from './redis/redis.module';
 import { TransactionsModule } from './transactions/transactions.module';
+import { ReviewsModule } from './reviews/reviews.module';
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { TransactionsModule } from './transactions/transactions.module';
     DeliveriesModule,
     RedisModule,
     TransactionsModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
