@@ -1,34 +1,25 @@
-# Delivery API Documentation
+# NutriTiffin Delivery System API Documentation
 
-## Base URLs
+Production Base URL:
+`https://backend.v1.nutritiffin.com`
 
-- **Production**: `https://backend.v1.nutritiffin.com`
-- **Local**: `http://localhost:3000`
+All IDs are UUID strings.  
+All protected endpoints require:
+`Authorization: Bearer <JWT>`
 
----
-
-## Authentication
-
-All endpoints require a specific **Header**:
-`Authorization: Bearer <JWT_TOKEN>`
-
-**User Role Required**: `DELIVERY_DRIVER`
+Role required for delivery endpoints: `DELIVERY_DRIVER`
 
 ---
 
-## Data Enums
+## The Delivery Workflow
 
-### Order Status
+As a Delivery Partner, the standard lifecycle on an order flows like this:
 
-The `status` field in responses can be one of:
-
-- `PENDING`: Created by client, not yet accepted by kitchen.
-- `ACCEPTED`: Accepted by kitchen, waiting for driver (Visible in Available).
-- `REJECTED`: Rejected by kitchen.
-- `PICKED_UP`: Picked up by driver from the kitchen.
-- `OUT_FOR_DELIVERY`: On the way to the client.
-- `DELIVERED`: Successfully delivered.
-- `CANCELLED`: Cancelled by user.
+1. **Find an Order:** Driver checks the available deliveries array via `GET /deliveries/available`.
+2. **Accept:** Driver binds to an order via `PATCH /deliveries/:id/accept`. Order stays at `ACCEPTED` or `READY`.
+3. **Pick Up:** Driver arrives at the Kitchen, sees the order is `READY`. Driver triggers `PATCH /deliveries/:id/pick-up`. Status becomes `PICKED_UP`. 
+4. **Out for Delivery:** Driver begins driving to the client via `PATCH /deliveries/:id/out-for-delivery`. Status becomes `OUT_FOR_DELIVERY`.
+5. **Finish Delivery:** Driver hands over the item and triggers `PATCH /deliveries/:id/finish`. Status becomes `DELIVERED`, and Driver is instantly credited for the delivery fees (`GET /deliveries/credits`).
 
 ---
 
@@ -36,17 +27,15 @@ The `status` field in responses can be one of:
 
 ### 1. Get Driver Credits
 
-Retrieves the current available credit balance for the authenticated delivery driver.
+**GET** `/deliveries/credits`
+**Role Required:** `DELIVERY_DRIVER`
 
-- **URL**: `/deliveries/credits`
-- **Method**: `GET`
-- **Description**: Use this to show the driver their current earnings/credits.
+Retrieves the current available credit account balance built from delivery efforts natively.
 
 **Success Response (200 OK):**
-
 ```json
 {
-  "credits": 250
+  "credits": 250.00
 }
 ```
 
@@ -54,254 +43,167 @@ Retrieves the current available credit balance for the authenticated delivery dr
 
 ### 2. Get Available Deliveries
 
-Retrieves a list of orders that are ready for pickup. These orders have been accepted by the kitchen but have no driver assigned yet.
+**GET** `/deliveries/available`
+**Role Required:** `DELIVERY_DRIVER`
 
-- **URL**: `/deliveries/available`
-- **Method**: `GET`
-- **Description**: Use this to show the "Job Board" or "Available Orders" list to the driver.
-- **Notes**:
-  - **Client details (address/phone) are HIDDEN** in this view to protect privacy until the order is accepted.
-  - Returns orders sorted by creation date (Oldest first).
+Retrieves an interactive list of unassigned orders that are marked either `ACCEPTED` (kitchen accepted the task but isn't done preparing) or `READY` (kitchen finished preparing, available for physical pick-up immediately).
 
 **Success Response (200 OK):**
-
 ```json
 [
   {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "status": "ACCEPTED",
-    "scheduled_for": "2026-02-16",
-    "total_price": 450.0,
+    "id": "28ba8bab-8c42-4e7a-beac-c5843965b260",
+    "status": "READY",
+    "total_price": "280.00",
+    "created_at": "2026-03-03T17:34:25.105Z",
+    "scheduled_for": "2026-03-04",
     "kitchen": {
-      "id": "kitchen-uuid-123",
-      "name": "Spicy Treats Kitchen",
-      "phone": "9876543210",
-      "address": "123 Culinary Ave, Food City"
-    },
-    "items": [
-      {
-        "food_item_id": "item-uuid-001",
-        "name": "Chicken Biryani",
-        "image_url": "https://s3.aws.com/...",
-        "quantity": 2,
-        "snapshot_price": 225.0
+      "id": "c282d569-e3a9-4820-ad35-d4093a8b96d8",
+      "name": "Arjuns Kitchen",
+      "details": {
+        "address": "123 MG Road",
+        "phone": "9876543210"
       }
-    ]
-    // Note: 'client' and 'delivery_driver' fields are null/undefined here
+    }
   }
 ]
 ```
 
 ---
 
-### 2. Get My Active Deliveries
+### 3. Get My Deliveries
 
-Retrieves all orders where the current user is assigned as the driver.
+**GET** `/deliveries/my-orders`
+**Role Required:** `DELIVERY_DRIVER`
 
-- **URL**: `/deliveries/my-orders`
-- **Method**: `GET`
-- **Description**: Use this to show the "My Tasks" or "Current Deliveries" list.
-- **Notes**:
-  - **Client details ARE INCLUDED** here (Name, Phone, Address) so the driver knows where to deliver.
+Retrieves a detailed list of all orders exclusively assigned to the authenticated driver logic.
 
 **Success Response (200 OK):**
-
 ```json
 [
   {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "id": "28ba8bab-8c42-4e7a-beac-c5843965b260",
     "status": "OUT_FOR_DELIVERY",
-    "scheduled_for": "2026-02-16",
-    "total_price": 450.0,
+    "scheduled_for": "2026-03-04",
+    "total_price": "280.00",
     "kitchen": {
-      "id": "kitchen-uuid-123",
-      "name": "Spicy Treats Kitchen",
-      "phone": "9876543210",
-      "address": "123 Culinary Ave, Food City"
+      "id": "c282d569-e3a9-4820-ad35-d4093a8b96d8",
+      "name": "Arjuns Kitchen"
     },
     "client": {
-      "id": "client-uuid-456",
-      "name": "Rahul Sharma",
-      "phone_number": "9988776655",
-      "address": "Flat 402, Sunshine Apts, Metro City"
-    },
-    "items": [
-      {
-        "food_item_id": "item-uuid-001",
-        "name": "Chicken Biryani",
-        "quantity": 2,
-        "snapshot_price": 225.0
-      }
-    ]
+      "id": "8f6fdea3-5971-4030-aa92-5d5448d981d0",
+      "name": "Rahul Sharma"
+    }
   }
 ]
 ```
-
----
-
-### 3. Get Order Details
-
-Retrieves full details for a specific order.
-
-- **URL**: `/deliveries/:id`
-- **Method**: `GET`
-- **Path Param**: `id` (UUID of the order)
-- **Description**: View single order details.
-
-**Success Response (200 OK):**
-_Same structure as "My Active Deliveries"_
 
 ---
 
 ### 4. Accept Delivery
 
-Assigns the current driver to the order. The status remains `ACCEPTED`.
+**PATCH** `/deliveries/:id/accept`
+**Role Required:** `DELIVERY_DRIVER`
 
-- **URL**: `/deliveries/:id/accept`
-- **Method**: `PATCH`
-- **Path Param**: `id` (UUID of the order)
-- **Description**: Call this when the driver swipes "Accept".
+Assigns the selected available order to the specific driver account permanently. Requires the order to be `ACCEPTED` or `READY`. Fails if it's already assigned.
 
 **Success Response (200 OK):**
-Returns the updated Order object (including client details now).
-
-**Error Responses:**
-
-- `400 Bad Request`: If order is not in `ACCEPTED` state (e.g. already taken by someone else).
-- `404 Not Found`: If order ID is invalid.
+```json
+{
+  "id": "28ba8bab-8c42-4e7a-beac-c5843965b260",
+  "status": "READY",
+  "delivery_driver_id": "driver-uuid-123",
+  "updated_at": "2026-03-03T17:40:20.105Z"
+}
+```
 
 ---
 
 ### 5. Pick Up Delivery
 
-Marks the order as `PICKED_UP`.
+**PATCH** `/deliveries/:id/pick-up`
+**Role Required:** `DELIVERY_DRIVER`
 
-- **URL**: `/deliveries/:id/pick-up`
-- **Method**: `PATCH`
-- **Path Param**: `id` (UUID of the order)
-- **Description**: Call this when the driver arrives at the kitchen and picks up the order.
+Registers that the driver has arrived at the given kitchen and retrieved the items successfully. Only operates when the order is formally marked `READY` by the parent kitchen. Updates status to `PICKED_UP`.
 
 **Success Response (200 OK):**
-Returns the updated Order object with status `PICKED_UP`.
-
-**Error Responses:**
-
-- `400 Bad Request`: If order is not `ACCEPTED` or assigned to a different driver.
+```json
+{
+  "id": "28ba8bab-8c42-4e7a-beac-c5843965b260",
+  "status": "PICKED_UP",
+  "picked_up_at": "2026-03-03T17:45:00.000Z"
+}
+```
 
 ---
 
 ### 6. Out For Delivery
 
-Marks the order as `OUT_FOR_DELIVERY`.
+**PATCH** `/deliveries/:id/out-for-delivery`
+**Role Required:** `DELIVERY_DRIVER`
 
-- **URL**: `/deliveries/:id/out-for-delivery`
-- **Method**: `PATCH`
-- **Path Param**: `id` (UUID of the order)
-- **Description**: Call this when the driver leaves the kitchen towards the client.
+Transitions the state representing transit logic towards the client drop-off location. Order status enters `OUT_FOR_DELIVERY` state natively.
 
 **Success Response (200 OK):**
-Returns the updated Order object with status `OUT_FOR_DELIVERY`.
-
-**Error Responses:**
-
-- `400 Bad Request`: If order is not `PICKED_UP` or assigned to a different driver.
+```json
+{
+  "id": "28ba8bab-8c42-4e7a-beac-c5843965b260",
+  "status": "OUT_FOR_DELIVERY"
+}
+```
 
 ---
 
 ### 7. Finish Delivery
 
-Marks the order as `DELIVERED`.
+**PATCH** `/deliveries/:id/finish`
+**Role Required:** `DELIVERY_DRIVER`
 
-- **URL**: `/deliveries/:id/finish`
-- **Method**: `PATCH`
-- **Path Param**: `id` (UUID of the order)
-- **Description**: Call this when the driver swipes "Complete Delivery".
+Permanently resolves the task, records `delivered_at` timing natively tracking to metrics, and releases credits accurately. Order updates to `DELIVERED`.
 
 **Success Response (200 OK):**
-Returns the updated Order object with status `DELIVERED`.
-
-**Error Responses:**
-
-- `400 Bad Request`: If order is not `OUT_FOR_DELIVERY` or assigned to a different driver.
-
----
-
-### 8. Transaction History
-
-View all credit transactions the driver was part of — delivery payouts, admin credit adjustments, etc.
-
-- **URL**: `/transactions/my`
-- **Method**: `GET`
-- **Description**: Use this to show the driver their earnings history and all credit movements.
-
-**Query Parameters:**
-
-| Field | Type | Required | Description |
-| :--- | :--- | :--- | :--- |
-| `page` | number | No | Page number (default: 1). |
-| `limit` | number | No | Items per page (default: 20, max: 100). |
-
-**Success Response (200 OK):**
-
 ```json
 {
-  "data": [
-    {
-      "id": "txn-uuid",
-      "short_id": "TXN-A1B2C3",
-      "type": "CREDIT",
-      "source": "SUPPORT",
-      "amount": 100,
-      "description": "Credits added by SUPPORT",
-      "reference_id": null,
-      "from": { "label": "SUPPORT" },
-      "to": {
-        "id": "driver-uuid",
-        "name": "Driver Name",
-        "username": "driver01",
-        "role": "DELIVERY_DRIVER"
-      },
-      "created_at": "2026-03-02T17:25:00.000Z"
-    },
-    {
-      "id": "txn-uuid-2",
-      "short_id": "TXN-D4E5F6",
-      "type": "CREDIT",
-      "source": "DELIVERY",
-      "amount": 20,
-      "description": "Delivery payout for DEL-X9K2",
-      "reference_id": "order-uuid",
-      "from": null,
-      "to": {
-        "id": "driver-uuid",
-        "name": "Driver Name",
-        "username": "driver01",
-        "role": "DELIVERY_DRIVER"
-      },
-      "created_at": "2026-03-02T18:00:00.000Z"
-    }
-  ],
-  "total": 5,
-  "page": 1,
-  "limit": 20
+  "id": "28ba8bab-8c42-4e7a-beac-c5843965b260",
+  "status": "DELIVERED",
+  "delivered_at": "2026-03-03T18:10:00.000Z"
 }
 ```
 
-**Notes:**
-- `source: "SUPPORT"` means credits were added/deducted by an admin. The `from`/`to` field shows `{ "label": "SUPPORT" }` instead of a user object.
-- `source: "DELIVERY"` means payout for a completed delivery. The `description` includes the delivery short ID.
-- `reference_id` links to the related order UUID when applicable.
-
 ---
 
-### 9. Get Transaction by ID
+### 8. Get Delivery Summary / Order Details
 
-- **URL**: `/transactions/:id`
-- **Method**: `GET`
-- **Description**: View a single transaction. Drivers can only see transactions they were part of.
+**GET** `/deliveries/:id`
+**Role Required:** `DELIVERY_DRIVER`
 
-**Error Responses:**
+Used when the driver opens up the specific delivery card to navigate routes natively viewing full granular addresses.
 
-- `403 Forbidden`: If the transaction doesn't involve you.
-- `404 Not Found`: If transaction ID is invalid.
-
+**Success Response (200 OK):**
+```json
+{
+  "id": "28ba8bab-8c42-4e7a-beac-c5843965b260",
+  "status": "PICKED_UP",
+  "total_price": "280.00",
+  "kitchen": {
+      "id": "c282d569-e3a9-4820-ad35-d4093a8b96d8",
+      "name": "Arjuns Kitchen",
+      "phone": "9876543210",
+      "address": "123 MG Road"
+  },
+  "client": {
+      "id": "8f6fdea3-5971-4030-aa92-5d5448d981d0",
+      "name": "Rahul Sharma",
+      "phone_number": "+918887776666",
+      "address": "Target Delivery Street, Block A"
+  },
+  "items": [
+      {
+          "food_item_id": "aebf865c-abf8-405b-9e5b-ab4fce869084",
+          "name": "Virtual Tiffin",
+          "quantity": 1,
+          "snapshot_price": "100.00"
+      }
+  ]
+}
+```
