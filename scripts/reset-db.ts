@@ -63,6 +63,10 @@ async function resetDb() {
     await client.query('GRANT ALL ON SCHEMA public TO public;');
     console.log('Privileges granted.');
 
+    console.log('Creating uuid-ossp extension...');
+    await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
+    console.log('Extension created.');
+
     console.log('Database reset complete.');
   } catch (err) {
     console.error('Error resetting database:', err);
