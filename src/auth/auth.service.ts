@@ -186,7 +186,7 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
-  ) {}
+  ) { }
 
   /**
    * Generate a secure random hex token and its expiry (24h from now).
@@ -236,6 +236,15 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto): Promise<User> {
+    const allowedDomains = ['gmail.com', 'yopmail.com',"hotmail.com"];
+    const emailDomain = registerDto.email.split('@')[1]?.toLowerCase();
+
+    if (!emailDomain || !allowedDomains.includes(emailDomain)) {
+      throw new BadRequestException(
+        `Email domain @${emailDomain || 'unknown'} is not allowed. Allowed domains are: ${allowedDomains.join(', ')}`,
+      );
+    }
+
     if (registerDto.role === UserRole.ADMIN) {
       const adminPass = process.env.ADMIN_ACCESS_PASS;
       if (
