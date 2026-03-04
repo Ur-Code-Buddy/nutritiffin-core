@@ -28,6 +28,7 @@ services:
       - PLATFORM_FEES=${PLATFORM_FEES}
       - KITCHEN_FEES=${KITCHEN_FEES}
       - DELIVERY_FEES=${DELIVERY_FEES}
+      - SUPER_ADMIN_ACCESS_PASS=${SUPER_ADMIN_ACCESS_PASS}
     depends_on:
       - redis
     networks:
