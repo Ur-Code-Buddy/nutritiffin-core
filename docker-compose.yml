@@ -29,6 +29,7 @@ services:
       - KITCHEN_FEES=${KITCHEN_FEES}
       - DELIVERY_FEES=${DELIVERY_FEES}
       - SUPER_ADMIN_ACCESS_PASS=${SUPER_ADMIN_ACCESS_PASS}
+      - PRODUCTION=${PRODUCTION}
     depends_on:
       - redis
     networks:

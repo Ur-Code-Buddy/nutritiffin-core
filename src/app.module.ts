@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
@@ -62,12 +63,19 @@ import { ReviewsModule } from './reviews/reviews.module';
         },
       }),
     }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000,
-        limit: 10,
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const isProd = config.get<string>('PRODUCTION') !== 'false';
+        return [
+          {
+            ttl: 60000,
+            limit: isProd ? 10 : 1000000, // basically disables rate limiting when false
+          },
+        ];
       },
-    ]),
+    }),
     UsersModule,
     AuthModule,
     KitchensModule,
@@ -82,6 +90,12 @@ import { ReviewsModule } from './reviews/reviews.module';
     ReviewsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule { }

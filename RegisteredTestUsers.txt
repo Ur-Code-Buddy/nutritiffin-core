@@ -1,0 +1,152 @@
+# CLIENT TEST LOGINS
+
+{
+  "username": "client01",
+  "password": "test123"
+}
+
+{
+  "username": "client02",
+  "password": "test123"
+}
+
+{
+  "username": "client03",
+  "password": "test123"
+}
+
+{
+  "username": "client04",
+  "password": "test123"
+}
+
+{
+  "username": "client05",
+  "password": "test123"
+}
+
+{
+  "username": "client06",
+  "password": "test123"
+}
+
+{
+  "username": "client07",
+  "password": "test123"
+}
+
+{
+  "username": "client08",
+  "password": "test123"
+}
+
+{
+  "username": "client09",
+  "password": "test123"
+}
+
+{
+  "username": "client10",
+  "password": "test123"
+}
+
+
+# DRIVER TEST LOGINS
+
+{
+  "username": "driver01",
+  "password": "test123"
+}
+
+{
+  "username": "driver02",
+  "password": "test123"
+}
+
+{
+  "username": "driver03",
+  "password": "test123"
+}
+
+{
+  "username": "driver04",
+  "password": "test123"
+}
+
+{
+  "username": "driver05",
+  "password": "test123"
+}
+
+{
+  "username": "driver06",
+  "password": "test123"
+}
+
+{
+  "username": "driver07",
+  "password": "test123"
+}
+
+{
+  "username": "driver08",
+  "password": "test123"
+}
+
+{
+  "username": "driver09",
+  "password": "test123"
+}
+
+{
+  "username": "driver10",
+  "password": "test123"
+}
+
+
+# KITCHEN OWNER TEST LOGINS
+
+{
+  "username": "chef1",
+  "password": "pass123"
+}
+
+{
+  "username": "chef2",
+  "password": "pass123"
+}
+
+{
+  "username": "chef3",
+  "password": "pass123"
+}
+
+{
+  "username": "chef4",
+  "password": "pass123"
+}
+
+{
+  "username": "chef5",
+  "password": "pass123"
+}
+
+{
+  "username": "chef6",
+  "password": "pass123"
+}
+
+{
+  "username": "chef7",
+  "password": "pass123"
+}
+
+{
+  "username": "chef8",
+  "password": "pass123"
+}
+
+{
+  "username": "chef9",
+  "password": "pass123"
+}
