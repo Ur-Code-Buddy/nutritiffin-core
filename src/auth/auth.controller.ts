@@ -9,7 +9,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -18,7 +18,7 @@ import { ResendVerificationDto } from './dto/resend-verification.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('register')
   async register(@Body() registerDto: RegisterDto) {
@@ -75,14 +75,12 @@ export class AuthController {
     return this.authService.resendVerification(dto.email);
   }
 
-  @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 1, ttl: 30000 } })
   @HttpCode(HttpStatus.OK)
   @Post('retry-email-login')
   async retryEmailLogin(@Body() dto: ResendVerificationDto) {
     return this.authService.resendVerification(dto.email);
   }
-  @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 1, ttl: 10000 } })
   @HttpCode(HttpStatus.OK)
   @Post('check-email-verified')

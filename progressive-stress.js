@@ -1,133 +1,161 @@
 const fs = require('fs');
 
-async function startProgressiveStressTest() {
+async function startProgressiveMixedLoadTest() {
     const fileContent = fs.readFileSync('RegisteredTestUsers.txt', 'utf-8');
 
-    // Parse out the JSON blocks
-    const users = [];
+    const clients = [];
+    const drivers = [];
+    const chefs = [];
+
     const regex = /{\s*"username":\s*"([^"]+)",\s*"password":\s*"([^"]+)"\s*}/g;
     let match;
     while ((match = regex.exec(fileContent)) !== null) {
-        users.push({ username: match[1], password: match[2] });
+        const user = { username: match[1], password: match[2] };
+        if (user.username.startsWith('client')) clients.push(user);
+        else if (user.username.startsWith('driver')) drivers.push(user);
+        else if (user.username.startsWith('chef')) chefs.push(user);
     }
-
-    console.log(`Loaded ${users.length} users for stress testing.`);
 
     const URL = 'https://backend.v1.nutritiffin.com';
 
-    let totalRequests = 0;
-    let successRequests = 0;
-    let failedRequests = 0;
-
-    // Track metrics for the CURRENT phase
-    let phaseTotalReqs = 0;
-    let phaseFailedReqs = 0;
-    let phaseSuccessReqs = 0;
+    let globalMetrics = { totalReqs: 0, success: 0, failed: 0 };
+    let phaseMetrics = { totalReqs: 0, success: 0, failed: 0 };
 
     let currentConcurrency = 5;
     const CONCURRENCY_STEP = 5;
-    const PHASE_DURATION_MS = 10000; // 10 seconds per phase
+    const PHASE_DURATION_MS = 10000; // 10s per phase
 
     let isRunning = true;
     let activeWorkers = 0;
 
-    // Helper method to login
-    const doLoginAndFetch = async (user) => {
+    const apiCall = async (endpoint, method, token, body = null) => {
+        globalMetrics.totalReqs++;
+        phaseMetrics.totalReqs++;
+
         try {
-            totalRequests++;
-            phaseTotalReqs++;
+            const options = {
+                method,
+                headers: { 'Content-Type': 'application/json' }
+            };
+            if (token) options.headers['Authorization'] = `Bearer ${token}`;
+            if (body) options.body = JSON.stringify(body);
 
-            const loginRes = await fetch(`${URL}/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(user)
-            });
-
-            if (!loginRes.ok) {
-                failedRequests++;
-                phaseFailedReqs++;
-                return;
+            const res = await fetch(`${URL}${endpoint}`, options);
+            if (!res.ok) {
+                globalMetrics.failed++;
+                phaseMetrics.failed++;
+                return null;
             }
 
-            const loginData = await loginRes.json();
-            const token = loginData.access_token || loginData.token;
-
-            if (token) {
-                successRequests++;
-                phaseSuccessReqs++;
-
-                totalRequests++;
-                phaseTotalReqs++;
-                const profileRes = await fetch(`${URL}/users/me`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (profileRes.ok) {
-                    successRequests++;
-                    phaseSuccessReqs++;
-                } else {
-                    failedRequests++;
-                    phaseFailedReqs++;
-                }
-            } else {
-                failedRequests++;
-                phaseFailedReqs++;
-            }
+            globalMetrics.success++;
+            phaseMetrics.success++;
+            const text = await res.text();
+            return text ? JSON.parse(text) : {};
         } catch (err) {
-            failedRequests++;
-            phaseFailedReqs++;
+            globalMetrics.failed++;
+            phaseMetrics.failed++;
+            return null;
+        }
+    };
+
+    const loginUser = async (user) => {
+        const data = await apiCall('/auth/login', 'POST', null, user);
+        return data ? (data.access_token || data.token) : null;
+    };
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 2);
+    const scheduledFor = tomorrow.toISOString().split('T')[0];
+
+    const clientFlow = async () => {
+        const client = clients[Math.floor(Math.random() * clients.length)];
+        const token = await loginUser(client);
+        if (!token) return;
+
+        const kitchens = await apiCall('/kitchens', 'GET', token);
+        if (!kitchens || kitchens.length === 0) return;
+        const kitchen = kitchens[Math.floor(Math.random() * kitchens.length)];
+
+        const menuItems = await apiCall(`/menu-items/kitchen/${kitchen.id}`, 'GET', token);
+        if (!menuItems || menuItems.length === 0) return;
+
+        const item = menuItems[Math.floor(Math.random() * menuItems.length)];
+        await apiCall('/orders', 'POST', token, {
+            kitchen_id: kitchen.id,
+            scheduled_for: scheduledFor,
+            items: [{ food_item_id: item.id, quantity: 1 }]
+        });
+    };
+
+    const chefFlow = async () => {
+        const chef = chefs[Math.floor(Math.random() * chefs.length)];
+        const token = await loginUser(chef);
+        if (!token) return;
+
+        const orders = await apiCall('/orders', 'GET', token);
+        if (!orders || orders.length === 0) return;
+
+        const pendingOrders = orders.filter(o => o.status === 'PENDING');
+        if (pendingOrders.length > 0) {
+            const order = pendingOrders[Math.floor(Math.random() * pendingOrders.length)];
+            await apiCall(`/orders/${order.id}/accept`, 'PATCH', token);
+        }
+    };
+
+    const driverFlow = async () => {
+        const driver = drivers[Math.floor(Math.random() * drivers.length)];
+        const token = await loginUser(driver);
+        if (!token) return;
+
+        const myDeliveries = await apiCall('/deliveries/my-orders', 'GET', token);
+        if (!myDeliveries || myDeliveries.length === 0) return;
+
+        for (let delivery of myDeliveries) {
+            if (delivery.status === 'READY') {
+                await apiCall(`/deliveries/${delivery.id}/pick-up`, 'PATCH', token);
+            }
         }
     };
 
     const runWorker = async () => {
         activeWorkers++;
         while (isRunning) {
-            const randomUser = users[Math.floor(Math.random() * users.length)];
-            await doLoginAndFetch(randomUser);
-            // Wait slightly
-            await new Promise(r => setTimeout(r, 10));
+            const r = Math.random();
+            if (r < 0.5) await clientFlow();
+            else if (r < 0.75) await chefFlow();
+            else await driverFlow();
+
+            await new Promise(r => setTimeout(r, 20));
         }
         activeWorkers--;
     };
 
-    // Start initial workers
+    console.log(`\n--- Starting progressive MIXED stress test at concurrency: ${currentConcurrency} ---`);
     for (let i = 0; i < currentConcurrency; i++) {
         runWorker();
     }
 
-    console.log(`\n--- Starting progressive stress test at concurrency: ${currentConcurrency} ---`);
-
-    // Main evaluation loop
     const evaluationInterval = setInterval(() => {
-        console.log(`\n[Phase Result] Concurrency: ${currentConcurrency} | Reqs: ${phaseTotalReqs} | Success: ${phaseSuccessReqs} | Failed: ${phaseFailedReqs}`);
+        const rps = (phaseMetrics.totalReqs / (PHASE_DURATION_MS / 1000)).toFixed(1);
+        console.log(`\n[Phase Result] Concurrency: ${currentConcurrency} | Reqs: ${phaseMetrics.totalReqs} (${rps} req/s) | Success: ${phaseMetrics.success} | Failed: ${phaseMetrics.failed}`);
 
-        // Check if failure rate is greater than 1% (or just simply > 0 failures)
-        // If we have failed requests in this phase, that's likely our limit
-        if (phaseFailedReqs > 0) {
-            console.log(`\n❌ ERROR THRESHOLD REACHED!`);
-            console.log(`Capacity achieved: Your backend starts dropping requests consistently around ${Math.max(1, currentConcurrency - CONCURRENCY_STEP)} concurrent fast-looping users.`);
-            console.log(`Failed at: ${currentConcurrency} concurrent continuous connections.`);
-            console.log(`Final Stats: ${totalRequests} total requests | ${failedRequests} total failures`);
+        if (phaseMetrics.failed > 0) {
+            console.log(`\n❌ ERROR THRESHOLD REACHED ON MIXED LOAD!`);
+            console.log(`Capacity achieved: Safe mixed operations max out around ${Math.max(1, currentConcurrency - CONCURRENCY_STEP)} concurrent users.`);
+            console.log(`Failed at: ${currentConcurrency} concurrent continuous connections doing orders/kitchens/deliveries.`);
+            console.log(`Final Stats: ${globalMetrics.totalReqs} total requests | ${globalMetrics.failed} total failures`);
 
             isRunning = false;
             clearInterval(evaluationInterval);
-
-            // Force exit after a few seconds to let workers finish
-            setTimeout(() => process.exit(0), 3000);
+            setTimeout(() => process.exit(0), 2000);
             return;
         }
 
-        // If no failures, ramp up concurrency
         currentConcurrency += CONCURRENCY_STEP;
-        console.log(`\n✅ Phase passed. Ramping up to ${currentConcurrency} concurrent continuous loops...`);
+        console.log(`✅ Phase passed. Ramping up to ${currentConcurrency} mixed concurrent loops...`);
 
-        // Reset phase trackers
-        phaseTotalReqs = 0;
-        phaseFailedReqs = 0;
-        phaseSuccessReqs = 0;
+        phaseMetrics = { totalReqs: 0, success: 0, failed: 0 };
 
-        // Start new workers to meet the new concurrency level
-        // (activeWorkers might temporarily drop if one is in between loops, but this adds the delta)
         for (let i = 0; i < CONCURRENCY_STEP; i++) {
             runWorker();
         }
@@ -135,4 +163,4 @@ async function startProgressiveStressTest() {
     }, PHASE_DURATION_MS);
 }
 
-startProgressiveStressTest();
+startProgressiveMixedLoadTest();
