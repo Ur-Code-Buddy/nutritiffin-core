@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsBoolean,
   IsArray,
+  Min,
 } from 'class-validator';
 
 export class CreateFoodItemDto {
@@ -20,6 +21,7 @@ export class CreateFoodItemDto {
   description: string;
 
   @IsNumber()
+  @Min(1)
   price: number;
 
   @IsString()
@@ -27,6 +29,7 @@ export class CreateFoodItemDto {
   image_url: string;
 
   @IsNumber()
+  @Min(1)
   @IsOptional()
   max_daily_orders: number;
 

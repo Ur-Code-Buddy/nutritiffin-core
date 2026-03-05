@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Res,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
@@ -15,6 +16,11 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { PhoneRegistrationDto } from './dto/phone-registration.dto';
+import { PhoneVerificationDto } from './dto/phone-verification.dto';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -86,5 +92,37 @@ export class AuthController {
   @Post('check-email-verified')
   async checkEmailVerified(@Body() dto: ResendVerificationDto) {
     return this.authService.checkEmailVerified(dto.email);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('delete-account')
+  async deleteAccount(@Req() req: any) {
+    return this.authService.deleteAccount(req.user.userId);
+  }
+
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('phone-registration')
+  async phoneRegistration(@Body() dto: PhoneRegistrationDto) {
+    return this.authService.phoneRegistration(dto);
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('phone-verification')
+  async phoneVerification(@Body() dto: PhoneVerificationDto) {
+    return this.authService.phoneVerification(dto);
   }
 }

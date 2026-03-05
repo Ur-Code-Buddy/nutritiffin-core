@@ -114,6 +114,74 @@ Checks whether the provided email is verified. Has a rate limit: max 1 request e
 }
 ```
 
+### Forgot Password
+
+**POST** `/auth/forgot-password`
+
+Initiates the password reset flow. Checks if the account exists, generates a 6-digit OTP stored in Redis (10 minutes expiry), and emails the OTP.
+
+**Request Body:**
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `email` | string | **Yes** | The email address associated with the account. |
+
+**Response:** Returns a generic success message to prevent user enumeration.
+
+### Reset Password
+
+**POST** `/auth/reset-password`
+
+Completes the password reset process by verifying the emailed OTP against Redis and saving the new password hash. Immediately bumps the token version, forcing re-authentication everywhere.
+
+**Request Body:**
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `email` | string | **Yes** | The user's email address. |
+| `otp` | string | **Yes** | The 6-digit OTP from the email. |
+| `new_password` | string | **Yes** | The new password (min 6 characters). |
+
+**Response:** Returns a success message.
+
+### Request Phone OTP (Registration)
+
+**POST** `/auth/phone-registration`
+
+Integrates with the **MessageCentral CPaaS API** to send a 6-digit SMS OTP to a phone number.
+
+**Request Body:**
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `mobileNumber` | string | **Yes** | Target phone number. |
+| `countryCode` | string | **Yes** | Calling code (e.g. "91"). |
+
+**Response:**
+```json
+{
+  "message": "OTP sent successfully",
+  "verificationId": "5915384"
+}
+```
+
+### Verify Phone OTP
+
+**POST** `/auth/phone-verification`
+
+Validates an SMS OTP against the MessageCentral API using the provided verification ID. Successfully verifying will automatically mark any associated NutriTiffin user account as `is_verified = true`.
+
+**Request Body:**
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `verificationId` | string | **Yes** | The ID returned during phone registration. |
+| `otp` | string | **Yes** | The code entered by the user. |
+
+**Response:**
+```json
+{
+  "message": "Phone number verified successfully",
+  "verified": true
+}
+```
+
 ---
 
 ## Users & Administration (`/users` & `/admin`)

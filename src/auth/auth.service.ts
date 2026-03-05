@@ -11,8 +11,13 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { BrevoClient } from '@getbrevo/brevo';
 import { RegisterDto } from './dto/register.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { PhoneRegistrationDto } from './dto/phone-registration.dto';
+import { PhoneVerificationDto } from './dto/phone-verification.dto';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/user.role.enum';
+import { RedisService } from '../redis/redis.service';
 
 async function sendVerificationEmail(
   email: string,
@@ -181,11 +186,58 @@ async function sendVerificationEmail(
   }
 }
 
+async function sendPasswordResetOtpEmail(
+  email: string,
+  otp: string,
+): Promise<void> {
+  const client = new BrevoClient({
+    apiKey: process.env.BREVO_API_KEY as string,
+  });
+
+  try {
+    await client.transactionalEmails.sendTransacEmail({
+      subject: 'Password Reset OTP | NutriTiffin',
+      htmlContent: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Password Reset OTP</title>
+            <style>
+              body { font-family: 'Segoe UI', sans-serif; background-color: #f4f6f8; color: #333; margin: 0; padding: 20px; }
+              .container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; padding: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+              .otp-box { font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #2563eb; text-align: center; margin: 30px 0; padding: 15px; background: #f3f4f6; border-radius: 6px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h2>Password Reset Requested</h2>
+              <p>You recently requested to reset your password for your NutriTiffin account. Use the OTP below to complete the reset process:</p>
+              <div class="otp-box">${otp}</div>
+              <p>This OTP is valid for 10 minutes. If you did not request a password reset, please ignore this email.</p>
+            </div>
+          </body>
+        </html>
+      `,
+      sender: { name: 'NutriTiffin Security', email: 'nutritiffin.kitchen@gmail.com' },
+      to: [{ email }],
+    });
+    console.log(`[EMAIL SENT] Password reset OTP sent to ${email}`);
+  } catch (error: any) {
+    console.error(
+      `[EMAIL ERROR] Failed to send password reset OTP to ${email}`,
+      JSON.stringify(error?.body || error?.response?.body || error, null, 2),
+    );
+  }
+}
+
 @Injectable()
 export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    private redisService: RedisService,
   ) { }
 
   /**
@@ -236,7 +288,7 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto): Promise<User> {
-    const allowedDomains = ['gmail.com', 'yopmail.com',"hotmail.com"];
+    const allowedDomains = ['gmail.com', 'yopmail.com', "hotmail.com"];
     const emailDomain = registerDto.email.split('@')[1]?.toLowerCase();
 
     if (!emailDomain || !allowedDomains.includes(emailDomain)) {
@@ -383,5 +435,142 @@ export class AuthService {
     }
 
     return { is_verified: user.is_verified };
+  }
+
+  async deleteAccount(userId: string): Promise<{ message: string }> {
+    if (!userId) {
+      throw new BadRequestException('User ID is required');
+    }
+    await this.usersService.deleteAccount(userId);
+    return { message: 'Account deleted successfully' };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
+    const user = await this.usersService.findOneByEmail(dto.email);
+    if (!user) {
+      // Do not reveal if the user exists for security reasons
+      return { message: 'If the email is registered, an OTP has been sent.' };
+    }
+
+    // Generate 6 digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const redisKey = `reset_otp:${user.email.toLowerCase()}`;
+
+    // Save to Redis with 10 minutes (600 seconds) expiry
+    await this.redisService.client.setex(redisKey, 600, otp);
+
+    // Send email (no need to await if we want to return fast, but standard await is safer)
+    await sendPasswordResetOtpEmail(user.email, otp);
+
+    return { message: 'If the email is registered, an OTP has been sent.' };
+  }
+
+  async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
+    const redisKey = `reset_otp:${dto.email.toLowerCase()}`;
+    const savedOtp = await this.redisService.client.get(redisKey);
+
+    if (!savedOtp || savedOtp !== dto.otp) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    const user = await this.usersService.findOneByEmail(dto.email);
+    if (!user) {
+      throw new BadRequestException('Invalid request');
+    }
+
+    const salt = await bcrypt.genSalt();
+    const newPasswordHash = await bcrypt.hash(dto.new_password, salt);
+
+    user.password_hash = newPasswordHash;
+    user.token_version += 1;
+    await this.usersService.saveUser(user);
+
+    // Clean up OTP
+    await this.redisService.client.del(redisKey);
+
+    return { message: 'Password has been changed successfully. You can now log in.' };
+  }
+
+  async phoneRegistration(dto: PhoneRegistrationDto) {
+    const customerId = process.env.SMS_CUSTOMER_ID;
+    const authToken = process.env.SMS_API_KEY;
+
+    if (!customerId || !authToken) {
+      throw new BadRequestException('SMS service is not configured properly');
+    }
+
+    const url = `https://cpaas.messagecentral.com/verification/v3/send?customerId=${customerId}&mobileNumber=${dto.mobileNumber}&countryCode=${dto.countryCode}&flowType=SMS&otpLength=6`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'authToken': authToken,
+        },
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result?.responseCode === 200) {
+        return {
+          message: 'OTP sent successfully',
+          verificationId: result.data.verificationId,
+        };
+      }
+
+      throw new BadRequestException(result?.message || 'Failed to send OTP');
+    } catch (error: any) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to communicate with SMS provider: ' + error.message);
+    }
+  }
+
+  async phoneVerification(dto: PhoneVerificationDto) {
+    const authToken = process.env.SMS_API_KEY;
+
+    if (!authToken) {
+      throw new BadRequestException('SMS service is not configured properly');
+    }
+
+    const url = `https://cpaas.messagecentral.com/verification/v3/validateOtp?verificationId=${dto.verificationId}&code=${dto.otp}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'authToken': authToken,
+        },
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result?.responseCode === 200 && result?.data?.verificationStatus === 'VERIFICATION_COMPLETED') {
+        const mobileNumber = result.data.mobileNumber;
+
+        // "Mark phone number as verified"
+        // Try to find the user with this mobile number and mark them as verified if they exist
+        if (mobileNumber) {
+          const user = await this.usersService.findOneByPhoneNumber(mobileNumber);
+          if (user) {
+            user.is_verified = true; // Leveraging existing field or custom flow
+            await this.usersService.saveUser(user);
+          }
+        }
+
+        return {
+          message: 'Phone number verified successfully',
+          verified: true,
+        };
+      }
+
+      throw new BadRequestException(result?.data?.errorMessage || result?.message || 'Invalid or expired OTP');
+    } catch (error: any) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to communicate with SMS provider: ' + error.message);
+    }
   }
 }

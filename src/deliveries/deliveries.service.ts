@@ -70,18 +70,42 @@ export class DeliveriesService {
   }
 
   async acceptDelivery(id: string, driverId: string) {
-    const order = await this.findOne(id);
+    const queryRunner = this.ordersRepository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    if (order.status !== OrderStatus.ACCEPTED && order.status !== OrderStatus.READY) {
-      throw new BadRequestException('Order is not available for pickup');
+    try {
+      const order = await queryRunner.manager.findOne(Order, {
+        where: { id },
+        relations: ['kitchen', 'client', 'items', 'items.food_item'],
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!order) {
+        throw new NotFoundException(`Order with ID ${id} not found`);
+      }
+
+      if (order.status !== OrderStatus.ACCEPTED && order.status !== OrderStatus.READY) {
+        throw new BadRequestException('Order is not available for pickup');
+      }
+
+      if (order.delivery_driver_id) {
+        throw new BadRequestException('Order already accepted by another driver');
+      }
+
+      order.delivery_driver_id = driverId;
+      const savedOrder = await queryRunner.manager.save(order);
+      await queryRunner.commitTransaction();
+      return savedOrder;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to accept delivery: ' + (error.message || 'Concurrent mod'));
+    } finally {
+      await queryRunner.release();
     }
-
-    if (order.delivery_driver_id) {
-      throw new BadRequestException('Order already accepted by another driver');
-    }
-
-    order.delivery_driver_id = driverId;
-    return this.ordersRepository.save(order);
   }
 
   async pickUpDelivery(id: string, driverId: string) {

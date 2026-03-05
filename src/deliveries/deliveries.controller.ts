@@ -5,6 +5,7 @@ import {
   Param,
   UseGuards,
   Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import { DeliveriesService } from './deliveries.service';
 import { UsersService } from '../users/users.service';
@@ -12,6 +13,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../users/user.role.enum';
+import { OrderStatus } from '../orders/entities/order.entity';
 import { ResponseMapper } from '../common/utils/response.mapper';
 
 @Controller('deliveries')
@@ -62,12 +64,19 @@ export class DeliveriesController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string, @Request() req: any) {
     const order = await this.deliveriesService.findOne(id);
-    // Note: deliveriesService.findOne checks for existence but not necessarily driver assignment for 'viewing'.
-    // If we want strict 'my delivery' check, we should add it.
-    // However, if the driver is viewing an 'available' order (before accepting), they need to see it too.
-    // So we assume if it's found via delivery service, it's viewable by driver.
+
+    // Check ownership: driver is assigned OR it's unassigned & available
+    if (order.delivery_driver_id !== req.user.userId) {
+      if (order.delivery_driver_id !== null) {
+        throw new ForbiddenException('Not assigned to this delivery');
+      }
+      if (order.status !== OrderStatus.ACCEPTED && order.status !== OrderStatus.READY) {
+        throw new ForbiddenException('Delivery is not available');
+      }
+    }
+
     return ResponseMapper.toDriverDeliveryView(order);
   }
 }

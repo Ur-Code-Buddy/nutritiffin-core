@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 import { UserRole } from '../user.role.enum';
 import { Exclude } from 'class-transformer';
@@ -67,4 +68,7 @@ export class User {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  deleted_at: Date | null;
 }

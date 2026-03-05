@@ -9,6 +9,7 @@ import {
   Request,
   BadRequestException,
   ForbiddenException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -50,7 +51,7 @@ export class OrdersController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  async findOne(@Param('id') id: string, @Request() req: any) {
+  async findOne(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
     const order = await this.ordersService.findOne(id);
     if (!order) throw new BadRequestException('Order not found');
 
@@ -111,7 +112,7 @@ export class OrdersController {
   @Patch(':id/accept')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.KITCHEN_OWNER)
-  async accept(@Request() req: any, @Param('id') id: string) {
+  async accept(@Request() req: any, @Param('id', ParseUUIDPipe) id: string) {
     await this.validateOrderOwnership(req.user.userId, id);
     return this.ordersService.updateStatus(id, OrderStatus.ACCEPTED);
   }
@@ -119,7 +120,7 @@ export class OrdersController {
   @Patch(':id/reject')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.KITCHEN_OWNER)
-  async reject(@Request() req: any, @Param('id') id: string) {
+  async reject(@Request() req: any, @Param('id', ParseUUIDPipe) id: string) {
     await this.validateOrderOwnership(req.user.userId, id);
     return this.ordersService.updateStatus(id, OrderStatus.REJECTED);
   }
@@ -127,7 +128,7 @@ export class OrdersController {
   @Patch(':id/ready')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.KITCHEN_OWNER)
-  async ready(@Request() req: any, @Param('id') id: string) {
+  async ready(@Request() req: any, @Param('id', ParseUUIDPipe) id: string) {
     await this.validateOrderOwnership(req.user.userId, id);
     return this.ordersService.updateStatus(id, OrderStatus.READY);
   }

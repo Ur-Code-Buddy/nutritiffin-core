@@ -30,6 +30,8 @@ services:
       - DELIVERY_FEES=${DELIVERY_FEES}
       - SUPER_ADMIN_ACCESS_PASS=${SUPER_ADMIN_ACCESS_PASS}
       - PRODUCTION=${PRODUCTION}
+      - SMS_API_KEY=${SMS_API_KEY}
+      - SMS_CUSTOMER_ID=${SMS_CUSTOMER_ID}
     depends_on:
       - redis
     networks:

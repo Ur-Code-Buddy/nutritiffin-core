@@ -7,6 +7,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UserRole } from './user.role.enum';
+import { Kitchen } from '../kitchens/entities/kitchen.entity';
+import { FoodItem } from '../food-items/entities/food-item.entity';
 
 @Injectable()
 export class UsersService {
@@ -14,7 +16,7 @@ export class UsersService {
     @InjectRepository(User)
     private usersRepository: Repository<User>,
     private dataSource: DataSource,
-  ) {}
+  ) { }
 
   async create(
     username: string,
@@ -126,5 +128,28 @@ export class UsersService {
     if (!user) throw new NotFoundException('User not found');
     user.token_version += 1;
     return this.usersRepository.save(user);
+  }
+
+  async deleteAccount(id: string): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const user = await manager.findOne(User, { where: { id } });
+      if (!user) throw new NotFoundException('User not found');
+
+      // Invalidate all active sessions
+      user.token_version += 1;
+      await manager.save(user);
+
+      // Soft delete the user (sets deleted_at to current timestamp)
+      await manager.softRemove(user);
+
+      // If owner is a kitchen owner, soft delete their kitchen and food items
+      if (user.role === UserRole.KITCHEN_OWNER) {
+        const kitchen = await manager.findOne(Kitchen, { where: { owner_id: id } });
+        if (kitchen) {
+          await manager.softRemove(kitchen);
+          await manager.softDelete(FoodItem, { kitchen_id: kitchen.id });
+        }
+      }
+    });
   }
 }

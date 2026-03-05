@@ -7,6 +7,7 @@ import {
   OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 import { Kitchen } from '../../kitchens/entities/kitchen.entity';
 import { FoodItemAvailability } from './food-item-availability.entity';
@@ -64,4 +65,7 @@ export class FoodItem {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  deleted_at: Date | null;
 }

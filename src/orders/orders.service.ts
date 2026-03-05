@@ -40,12 +40,6 @@ export class OrdersService {
     maxDate.setHours(23, 59, 59, 999); // End of 3rd day
 
     const scheduledDate = new Date(dto.scheduled_for);
-    // Ensure scheduledDate is compared correctly (ignoring time if input is date-only string like YYYY-MM-DD,
-    // but dto.scheduled_for is validated as DateString. If it has time, we should probably ignore it or handle it.
-    // Assuming standard YYYY-MM-DD format from previous code context or ISO).
-    // Let's normalize scheduledDate to be safe if it comes with time, or just compare timestamps if it is full ISO.
-    // The previous code did strict Y/M/D comparison for "tomorrow".
-    // Let's normalize scheduledDate to 00:00:00 for comparison start
     const comparisonDate = new Date(scheduledDate);
     comparisonDate.setHours(0, 0, 0, 0);
 
@@ -55,96 +49,109 @@ export class OrdersService {
       );
     }
 
-    // 2. Validate Items & Availability
-    const orderItems: OrderItem[] = [];
-    let totalPrice = 0;
+    const queryRunner = this.ordersRepo.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    for (const itemDto of dto.items) {
-      const foodItem = await this.foodItemRepo.findOne({
-        where: { id: itemDto.food_item_id, kitchen_id: dto.kitchen_id },
-        relations: ['availability'],
+    try {
+      // 2. Validate Items & Availability
+      const orderItems: OrderItem[] = [];
+      let totalPrice = 0;
+
+      // To avoid deadlocks, sort items by food_item_id
+      const sortedItems = [...dto.items].sort((a, b) => a.food_item_id.localeCompare(b.food_item_id));
+
+      for (const itemDto of sortedItems) {
+        // Use pessimistic write lock to serialize concurrent capacity checks
+        const foodItem = await queryRunner.manager.findOne(FoodItem, {
+          where: { id: itemDto.food_item_id, kitchen_id: dto.kitchen_id },
+          relations: ['availability'],
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!foodItem) {
+          throw new BadRequestException(
+            `Food item ${itemDto.food_item_id} not found or not from this kitchen.`,
+          );
+        }
+
+        if (!foodItem.active) {
+          throw new BadRequestException(`${foodItem.name} is inactive.`);
+        }
+
+        // Check specific availability
+        const availability = foodItem.availability?.find(
+          (a) => a.date === dto.scheduled_for,
+        );
+        if (availability && !availability.is_available) {
+          throw new BadRequestException(
+            `${foodItem.name} is unavailable for ${dto.scheduled_for}.`,
+          );
+        }
+
+        const sold = await queryRunner.manager
+          .createQueryBuilder(OrderItem, 'oi')
+          .leftJoin('oi.order', 'o')
+          .where('oi.food_item_id = :itemId', { itemId: foodItem.id })
+          .andWhere('o.scheduled_for = :date', { date: dto.scheduled_for })
+          .andWhere('o.status != :status', { status: OrderStatus.REJECTED })
+          .select('SUM(oi.quantity)', 'sum')
+          .getRawOne();
+
+        const currentSold = parseInt(sold?.sum || '0', 10);
+        if (currentSold + itemDto.quantity > foodItem.max_daily_orders) {
+          throw new BadRequestException(
+            `${foodItem.name} sold out for ${dto.scheduled_for}.`,
+          );
+        }
+
+        const orderItem = new OrderItem();
+        orderItem.food_item = foodItem;
+        orderItem.quantity = itemDto.quantity;
+        orderItem.snapshot_price = foodItem.price;
+        orderItems.push(orderItem);
+        totalPrice += Number(foodItem.price) * itemDto.quantity;
+      }
+
+      // 3. Calculate Fees
+      const platformFees = Number(this.configService.get<number>('PLATFORM_FEES', 10));
+      const deliveryFees = Number(this.configService.get<number>('DELIVERY_FEES', 20));
+      const kitchenFeesPercent = Number(this.configService.get<number>('KITCHEN_FEES', 15));
+
+      const kitchenFees = parseFloat(((kitchenFeesPercent / 100) * totalPrice).toFixed(2));
+      const grandTotal = parseFloat((totalPrice + platformFees + deliveryFees).toFixed(2));
+
+      // 4. Create Order
+      const order = queryRunner.manager.create(Order, {
+        client_id: clientId,
+        kitchen_id: dto.kitchen_id,
+        scheduled_for: dto.scheduled_for,
+        status: OrderStatus.PENDING,
+        items: orderItems,
+        total_price: grandTotal,
+        platform_fees: platformFees,
+        delivery_fees: deliveryFees,
+        kitchen_fees: kitchenFees,
       });
 
-      if (!foodItem) {
-        throw new BadRequestException(
-          `Food item ${itemDto.food_item_id} not found or not from this kitchen.`,
-        );
-      }
+      const savedOrder = await queryRunner.manager.save(order);
 
-      if (!foodItem.active) {
-        throw new BadRequestException(`${foodItem.name} is inactive.`);
-      }
+      await queryRunner.commitTransaction();
 
-      // Check specific availability
-      const availability = foodItem.availability?.find(
-        (a) => a.date === dto.scheduled_for,
+      // 5. Trigger Auto-Reject Job (10 mins)
+      await this.ordersQueue.add(
+        'order-timeout',
+        { orderId: savedOrder.id },
+        { delay: 10 * 60 * 1000, jobId: `timeout-${savedOrder.id}` },
       );
-      if (availability && !availability.is_available) {
-        throw new BadRequestException(
-          `${foodItem.name} is unavailable for ${dto.scheduled_for}.`,
-        );
-      }
 
-      // Check daily max orders (simple check, concurrency could be an issue but ignored for now)
-      // Count sold quantity for this item on this date
-      const sold = await this.orderItemRepo
-        .createQueryBuilder('oi')
-        .leftJoin('oi.order', 'o')
-        .where('oi.food_item_id = :itemId', { itemId: foodItem.id })
-        .andWhere('o.scheduled_for = :date', { date: dto.scheduled_for })
-        .andWhere('o.status != :status', { status: OrderStatus.REJECTED })
-        .select('SUM(oi.quantity)', 'sum')
-        .getRawOne();
-
-      const currentSold = parseInt(sold?.sum || '0', 10);
-      if (currentSold + itemDto.quantity > foodItem.max_daily_orders) {
-        throw new BadRequestException(
-          `${foodItem.name} sold out for ${dto.scheduled_for}.`,
-        );
-      }
-
-      const orderItem = new OrderItem();
-      orderItem.food_item = foodItem;
-      orderItem.quantity = itemDto.quantity;
-      orderItem.snapshot_price = foodItem.price;
-      orderItems.push(orderItem);
-      totalPrice += Number(foodItem.price) * itemDto.quantity;
+      return savedOrder;
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
     }
-
-    // 3. Calculate Fees
-    const platformFees = Number(this.configService.get<number>('PLATFORM_FEES', 10));
-    const deliveryFees = Number(this.configService.get<number>('DELIVERY_FEES', 20));
-    const kitchenFeesPercent = Number(this.configService.get<number>('KITCHEN_FEES', 15));
-
-    // Kitchen fees = percentage of items subtotal (deducted from kitchen's payout)
-    const kitchenFees = parseFloat(((kitchenFeesPercent / 100) * totalPrice).toFixed(2));
-
-    // Client pays: items subtotal + platform fees + delivery fees
-    const grandTotal = parseFloat((totalPrice + platformFees + deliveryFees).toFixed(2));
-
-    // 4. Create Order
-    const order = this.ordersRepo.create({
-      client_id: clientId,
-      kitchen_id: dto.kitchen_id,
-      scheduled_for: dto.scheduled_for,
-      status: OrderStatus.PENDING,
-      items: orderItems,
-      total_price: grandTotal,
-      platform_fees: platformFees,
-      delivery_fees: deliveryFees,
-      kitchen_fees: kitchenFees,
-    });
-
-    const savedOrder = await this.ordersRepo.save(order);
-
-    // 4. Trigger Auto-Reject Job (10 mins)
-    await this.ordersQueue.add(
-      'order-timeout',
-      { orderId: savedOrder.id },
-      { delay: 10 * 60 * 1000, jobId: `timeout-${savedOrder.id}` }, // Fixed jobId for idempotency/tracking
-    );
-
-    return savedOrder;
   }
 
   findAll(userId: string, role: string) {

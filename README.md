@@ -282,6 +282,10 @@ Below is a summary of all available endpoints. For full request/response schemas
 | `POST` | `/auth/resend-verification` | — | Resend verification email |
 | `POST` | `/auth/retry-email-login` | — | Retry sending verification |
 | `POST` | `/auth/check-email-verified` | — | Check verification status |
+| `POST` | `/auth/forgot-password` | — | Initiate password reset flow via OTP |
+| `POST` | `/auth/reset-password` | — | Complete password reset using OTP |
+| `POST` | `/auth/phone-registration` | — | Dispatch SMS OTP via MessageCentral |
+| `POST` | `/auth/phone-verification` | — | Verify SMS OTP and mark phone verified |
 
 ### Users & Administration
 
