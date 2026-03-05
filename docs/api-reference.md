@@ -114,6 +114,15 @@ Checks whether the provided email is verified. Has a rate limit: max 1 request e
 }
 ```
 
+### Delete Account
+
+**POST** `/auth/delete-account`
+**Role Required:** Authenticated User
+
+Deletes the connected authenticated user account from the system permanently.
+
+**Response:** Returns a success message.
+
 ### Forgot Password
 
 **POST** `/auth/forgot-password`
@@ -499,6 +508,20 @@ Returns the current version and uptime.
 **GET** `/`
 
 Returns a welcome message.
+
+### Reset Database
+
+**POST** `/resetdb`
+
+Resets the database. Requires superadmin access.
+
+**Request Body:**
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `pass` | string | **Yes** | Super admin access password matching the `SUPER_ADMIN_ACCESS_PASS` environment variable. |
+
+**Response:**
+Returns a success message with the command execution output.
 
 ---
 
