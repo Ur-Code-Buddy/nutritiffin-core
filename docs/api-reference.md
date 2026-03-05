@@ -577,9 +577,6 @@ Retrieves full order details including addresses and phone numbers.
 }
 ```
 
-  "items": [ ... ]
-}
-```
 
 ---
 
