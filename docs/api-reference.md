@@ -8,6 +8,25 @@ All endpoints are relative to the base URL: `http://localhost:3000` (for local d
 
 ## Authentication (`/auth`)
 
+### Registration → Login Pipeline
+
+New users must complete the following steps before they can log in:
+
+```
+1. Register        POST /auth/register
+       ↓
+2. Verify Email    GET  /auth/verify-email?token=...
+       ↓            (verification email sent during registration)
+3. OTP Sent        Automatic — 4-digit SMS OTP sent 10 seconds after email verification
+       ↓            (can also be triggered manually via POST /auth/resend-phone-otp)
+4. Verify Phone    POST /auth/verify-phone
+       ↓            (user submits the 4-digit OTP received via SMS)
+5. Login           POST /auth/login
+                   (only allowed after both email and phone are verified)
+```
+
+> **Note:** In development mode (`PRODUCTION=false`), email and phone are auto-verified on registration and all OTP checks are bypassed.
+
 ### Register User
 
 **POST** `/auth/register`
@@ -33,7 +52,7 @@ Creates a new user account.
 
 **POST** `/auth/login`
 
-Authenticates a user and returns a JWT token. **Rejects users who have not verified their email.**
+Authenticates a user and returns a JWT token. **Rejects users who have not verified both their email and phone number.**
 
 **Request Body:**
 | Field | Type | Required | Description |
@@ -56,7 +75,7 @@ Verifies a user's email address using the token sent during registration.
 
 - Looks up the user by the token.
 - Returns a 302 Redirect to the frontend application:
-  - On success: Redirects to `FRONTEND_URL/verification-success` (and sets `is_verified: true`, clears token).
+  - On success: Redirects to `FRONTEND_URL/verification-success` (and sets `email_verified: true`, clears token). **A 4-digit SMS OTP is automatically sent to the user's phone number after a 10-second delay.**
   - On invalid token: Redirects to `FRONTEND_URL/verification-failed?reason=invalid`.
   - On expired token (tokens are valid for 24 hours): Redirects to `FRONTEND_URL/verification-failed?reason=expired`.
 
@@ -155,7 +174,9 @@ Completes the password reset process by verifying the emailed OTP against Redis 
 
 **POST** `/auth/resend-phone-otp`
 
-Integrates with the **MessageCentral CPaaS API** to send a 6-digit SMS OTP to a phone number. Temporary storage via Redis.
+Integrates with the **MessageCentral CPaaS API** to send a 4-digit SMS OTP to a phone number via a `POST` request. The returned `verificationId` is stored temporarily in Redis (5 minutes TTL).
+
+> **Note:** This endpoint is also called automatically 10 seconds after successful email verification. Users can call it manually to resend the OTP if needed.
 
 **Request Body:**
 | Field | Type | Required | Description |
@@ -172,9 +193,8 @@ Integrates with the **MessageCentral CPaaS API** to send a 6-digit SMS OTP to a 
 ### Verify Phone OTP
 
 **POST** `/auth/verify-phone`
-**Role Required:** Authenticated User
 
-Validates an SMS OTP against the MessageCentral API using the provided OTP and phone number. Successfully verifying will automatically mark the associated NutriTiffin user account as `phone_verified = true` and update their phone number. Returns 409 if phone belongs to another verified account.
+Validates the 4-digit SMS OTP against the MessageCentral API using a `GET` request with the stored `verificationId` and the user-provided OTP code. On success, marks the user's account as `phone_verified = true`. This is the final step before the user can log in.
 
 **Request Body:**
 | Field | Type | Required | Description |

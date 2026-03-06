@@ -44,7 +44,7 @@ This API sends an OTP to the provided mobile number.
 ### Endpoint
 
 ```
-GET /send
+POST /send
 ```
 
 ### Full Request
@@ -66,7 +66,7 @@ https://cpaas.messagecentral.com/verification/v3/send
 ### Example Request
 
 ```
-https://cpaas.messagecentral.com/verification/v3/send?customerId=C-E281A96ED2B54AC&mobileNumber=8838087085&countryCode=91&flowType=SMS&otpLength=6
+POST https://cpaas.messagecentral.com/verification/v3/send?customerId=C-E281A96ED2B54AC&mobileNumber=8838087085&countryCode=91&flowType=SMS&otpLength=4
 ```
 
 ### Example Response

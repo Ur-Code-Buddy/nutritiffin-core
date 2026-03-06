@@ -409,9 +409,13 @@ export class AuthService {
 
     const isDevelopment = process.env.PRODUCTION === 'false';
     if (!isDevelopment && user.phone_number) {
-      await this.resendPhoneOtp({ phone: user.phone_number }).catch(err => {
-        console.error('[SMS ERROR] Failed to send OTP during email verification', err);
-      });
+      // Wait 10 seconds before sending OTP (fire in background so we don't block the response)
+      const phoneNumber = user.phone_number;
+      setTimeout(() => {
+        this.resendPhoneOtp({ phone: phoneNumber }).catch(err => {
+          console.error('[SMS ERROR] Failed to send OTP during email verification', err);
+        });
+      }, 10000);
     }
 
     return { message: 'Email verified successfully. An OTP has been sent to your phone to complete verification.' };
