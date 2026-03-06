@@ -1,6 +1,6 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 
@@ -21,6 +21,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.usersService.findOneById(payload.sub);
     if (!user) {
       throw new UnauthorizedException('User not found');
+    }
+
+    if (user.is_banned) {
+      throw new ForbiddenException(
+        'Your account has been banned. Please contact support@nutritiffin.com if you believe this is a mistake.',
+      );
     }
 
     if (user.token_version !== payload.token_version) {

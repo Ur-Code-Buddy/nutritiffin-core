@@ -266,6 +266,11 @@ export class AuthService {
   async validateUser(username: string, pass: string): Promise<any> {
     const user = await this.usersService.findOneByUsername(username);
     if (user && (await bcrypt.compare(pass, user.password_hash))) {
+      if (user.is_banned) {
+        throw new ForbiddenException(
+          'Your account has been banned. Please contact support@nutritiffin.com if you believe this is a mistake.',
+        );
+      }
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password_hash, ...result } = user;
       return result;
@@ -275,6 +280,13 @@ export class AuthService {
 
   async login(user: any) {
     const isDevelopment = process.env.PRODUCTION === 'false';
+
+    // Reject banned users
+    if (user.is_banned) {
+      throw new ForbiddenException(
+        'Your account has been banned. Please contact support@nutritiffin.com if you believe this is a mistake.',
+      );
+    }
 
     // Reject unverified users (only in production)
     if (!isDevelopment && (!user.email_verified || !user.phone_verified)) {

@@ -66,6 +66,9 @@ export class User {
   @Column({ type: 'int', default: 0 })
   token_version: number;
 
+  @Column({ default: false })
+  is_banned: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

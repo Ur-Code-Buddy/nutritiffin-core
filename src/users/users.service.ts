@@ -80,6 +80,7 @@ export class UsersService {
         'role',
         'credits',
         'is_active',
+        'is_banned',
         'created_at',
       ],
     });
@@ -131,6 +132,30 @@ export class UsersService {
     const user = await this.findOneById(id);
     if (!user) throw new NotFoundException('User not found');
     user.token_version += 1;
+    return this.usersRepository.save(user);
+  }
+
+  async banUser(id: string): Promise<User> {
+    const user = await this.findOneById(id);
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role === UserRole.ADMIN) {
+      throw new BadRequestException('Cannot ban an admin account');
+    }
+    if (user.is_banned) {
+      throw new BadRequestException('User is already banned');
+    }
+    user.is_banned = true;
+    user.token_version += 1; // Invalidate all active sessions immediately
+    return this.usersRepository.save(user);
+  }
+
+  async unbanUser(id: string): Promise<User> {
+    const user = await this.findOneById(id);
+    if (!user) throw new NotFoundException('User not found');
+    if (!user.is_banned) {
+      throw new BadRequestException('User is not banned');
+    }
+    user.is_banned = false;
     return this.usersRepository.save(user);
   }
 
