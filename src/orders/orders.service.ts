@@ -239,6 +239,37 @@ export class OrdersService {
       order.ready_at = new Date();
     }
 
-    return this.ordersRepo.save(order);
+    const savedOrder = await this.ordersRepo.save(order);
+
+    try {
+      const client = await this.usersService.findOneById(order.client_id);
+      if (client && client.fcm_token) {
+        let title = '';
+        let body = '';
+        if (status === OrderStatus.ACCEPTED) {
+          title = 'Order Accepted!';
+          body = 'Your order has been accepted and is being prepared.';
+        } else if (status === OrderStatus.REJECTED) {
+          title = 'Order Rejected';
+          body = 'Unfortunately, your order was rejected by the kitchen.';
+        } else if (status === OrderStatus.READY) {
+          title = 'Order Ready for Pickup!';
+          body = 'Your order is ready and waiting for a delivery driver.';
+        }
+
+        if (title && body) {
+          this.notificationsService.sendPushNotification(
+            client.fcm_token,
+            title,
+            body,
+            { orderId: savedOrder.id }
+          );
+        }
+      }
+    } catch (notifErr) {
+      this.logger.error('Failed to send push notification to client', notifErr);
+    }
+
+    return savedOrder;
   }
 }

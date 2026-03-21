@@ -2,20 +2,25 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { User } from '../users/entities/user.entity';
 import { Transaction, TransactionType, TransactionSource } from '../transactions/entities/transaction.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class DeliveriesService {
+  private readonly logger = new Logger(DeliveriesService.name);
+
   constructor(
     @InjectRepository(Order)
     private ordersRepository: Repository<Order>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    private notificationsService: NotificationsService,
   ) { }
 
   async findAllAvailable() {
@@ -123,7 +128,18 @@ export class DeliveriesService {
     order.status = OrderStatus.PICKED_UP;
     order.picked_up_at = new Date();
 
-    return this.ordersRepository.save(order);
+    const savedOrder = await this.ordersRepository.save(order);
+
+    if (order.client && order.client.fcm_token) {
+      this.notificationsService.sendPushNotification(
+        order.client.fcm_token,
+        'Order Picked Up!',
+        'Your order has been picked up and is on its way.',
+        { orderId: order.id }
+      ).catch(err => this.logger.error('Push notification failed', err));
+    }
+
+    return savedOrder;
   }
 
   async outForDelivery(id: string, driverId: string) {
@@ -139,7 +155,18 @@ export class DeliveriesService {
 
     order.status = OrderStatus.OUT_FOR_DELIVERY;
 
-    return this.ordersRepository.save(order);
+    const savedOrder = await this.ordersRepository.save(order);
+
+    if (order.client && order.client.fcm_token) {
+      this.notificationsService.sendPushNotification(
+        order.client.fcm_token,
+        'Order Out for Delivery!',
+        'Your driver is out for delivery with your order.',
+        { orderId: order.id }
+      ).catch(err => this.logger.error('Push notification failed', err));
+    }
+
+    return savedOrder;
   }
 
   async finishDelivery(id: string, driverId: string) {
@@ -169,7 +196,7 @@ export class DeliveriesService {
     try {
       const txOrder = await queryRunner.manager.findOne(Order, {
         where: { id },
-        relations: ['kitchen'],
+        relations: ['kitchen', 'client'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -254,6 +281,15 @@ export class DeliveriesService {
       }
 
       await queryRunner.commitTransaction();
+
+      if (txOrder.client && txOrder.client.fcm_token) {
+        this.notificationsService.sendPushNotification(
+          txOrder.client.fcm_token,
+          'Order Delivered!',
+          'Your order has been delivered successfully. Enjoy your meal!',
+          { orderId: txOrder.id }
+        ).catch(err => this.logger.error('Push notification failed', err));
+      }
 
       // Return the completed order with updated fields
       return txOrder;
