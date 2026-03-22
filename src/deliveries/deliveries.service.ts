@@ -221,37 +221,23 @@ export class DeliveriesService {
       txOrder.delivered_at = new Date();
       await queryRunner.manager.save(txOrder);
 
-      // 1. Driver collected cash -> driver owes system total_price
-      //    Driver earned delivery_fees -> system owes driver delivery_fees
+      // 1. Driver wallet: running total of cash collected from customers (order total_price includes
+      //    food, platform, delivery, tax — delivery_fees is not tracked separately for the driver).
       if (driver) {
-        const costToSystem = Number(txOrder.total_price);
-        const driverEarnings = Number(txOrder.delivery_fees);
-        driver.credits = Number(driver.credits) + driverEarnings - costToSystem;
+        driver.credits = Number(driver.credits) + Number(txOrder.total_price);
         await queryRunner.manager.save(driver);
 
-        const debitTxn = queryRunner.manager.create(Transaction, {
+        const collectionTxn = queryRunner.manager.create(Transaction, {
           short_id: generateShortId(),
-          from_user_id: driver.id,
-          to_user_id: null,
-          amount: costToSystem,
-          type: TransactionType.DEBIT,
+          from_user_id: null,
+          to_user_id: driver.id,
+          amount: Number(txOrder.total_price),
+          type: TransactionType.CREDIT,
           source: TransactionSource.DELIVERY,
           description: `Cash collected for order ID ${id.substring(0, 8)}`,
           reference_id: id,
         });
-        await queryRunner.manager.save(debitTxn);
-
-        const creditTxn = queryRunner.manager.create(Transaction, {
-          short_id: generateShortId(),
-          from_user_id: null,
-          to_user_id: driver.id,
-          amount: driverEarnings,
-          type: TransactionType.CREDIT,
-          source: TransactionSource.DELIVERY,
-          description: `Delivery payout for order ID ${id.substring(0, 8)}`,
-          reference_id: id,
-        });
-        await queryRunner.manager.save(creditTxn);
+        await queryRunner.manager.save(collectionTxn);
       }
 
       // 2. Kitchen owner gets item cost minus kitchen commission
