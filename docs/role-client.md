@@ -9,6 +9,37 @@
 
 ---
 
+## 0. PRE-CHECK
+
+### 0.1 Check District Availability
+
+**`GET /is-my-district-available?pincode=...`**
+
+Public endpoint to check if delivery is available for a specific pincode.
+
+**Query Parameters:**
+- `pincode` (string, required): The 6-digit pincode to check.
+
+**Example Response:**
+`true`
+
+### 0.2 Get Platform Charges
+
+**`GET /charges`**
+
+Retrieves the fixed platform fees, kitchen percentage fees, and delivery fees.
+
+**Success Response:**
+```json
+{
+  "platform_fees": 10,
+  "kitchen_fees": 15,
+  "delivery_fees": 20
+}
+```
+
+---
+
 ## 1. AUTHENTICATION
 
 ### 1.1 Register Client

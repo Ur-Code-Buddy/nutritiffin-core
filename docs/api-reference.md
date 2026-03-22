@@ -638,6 +638,35 @@ Uploads an image file to S3 and returns the public URL.
 
 ## App General
 
+### Check District Availability
+
+**GET** `/is-my-district-available`
+
+Checks whether a specific pincode is within the allowed delivery areas. This is a **public endpoint**.
+
+**Query Parameters:**
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `pincode` | string | **Yes** | The 6-digit pincode to check. |
+
+**Response:**
+`true` if the pincode is allowed, `false` otherwise.
+
+### Get Platform Charges
+
+**GET** `/charges`
+
+Returns the current platform-wide charges and fees.
+
+**Response:**
+```json
+{
+  "platform_fees": 10,
+  "kitchen_fees": 15,
+  "delivery_fees": 20
+}
+```
+
 ### Health Check
 
 **GET** `/health`

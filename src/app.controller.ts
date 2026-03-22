@@ -6,6 +6,7 @@ import {
   ServiceUnavailableException,
   UnauthorizedException,
   InternalServerErrorException,
+  Query,
 } from '@nestjs/common';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -76,6 +77,16 @@ export class AppController {
       uptime: process.uptime(),
     };
   }
+  @Get('is-my-district-available')
+  isMyDistrictAvailable(@Query('pincode') pincode: string): boolean {
+    return this.appService.isDistrictAvailable(pincode);
+  }
+
+  @Get('charges')
+  getCharges() {
+    return this.appService.getCharges();
+  }
+
   @Post('resetdb')
   async resetDb(@Body('pass') pass: string) {
     const superAdminPass = this.configService.get<string>(
