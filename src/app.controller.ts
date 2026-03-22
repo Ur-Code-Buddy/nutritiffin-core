@@ -7,6 +7,9 @@ import {
   UnauthorizedException,
   InternalServerErrorException,
   Query,
+  UseGuards,
+  Delete,
+  Param,
 } from '@nestjs/common';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -17,6 +20,10 @@ import { AppService } from './app.service';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { RedisService } from './redis/redis.service';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { RolesGuard } from './auth/roles.guard';
+import { Roles } from './auth/roles.decorator';
+import { UserRole } from './users/user.role.enum';
 
 @Controller()
 export class AppController {
@@ -78,8 +85,23 @@ export class AppController {
     };
   }
   @Get('is-my-district-available')
-  isMyDistrictAvailable(@Query('pincode') pincode: string): boolean {
+  async isMyDistrictAvailable(@Query('pincode') pincode: string) {
     return this.appService.isDistrictAvailable(pincode);
+  }
+
+  @Post('is-my-district-available')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async addPincode(@Body('pincode') pincode: number) {
+    return this.appService.addPincode(pincode);
+  }
+
+  @Delete('is-my-district-available/:pincode')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async removePincode(@Param('pincode') pincode: number) {
+    await this.appService.removePincode(pincode);
+    return { success: true };
   }
 
   @Get('charges')

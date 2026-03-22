@@ -642,7 +642,7 @@ Uploads an image file to S3 and returns the public URL.
 
 **GET** `/is-my-district-available`
 
-Checks whether a specific pincode is within the allowed delivery areas. This is a **public endpoint**.
+Checks whether a specific pincode is within the allowed delivery areas. This is a **public endpoint** and is backed by a database.
 
 **Query Parameters:**
 | Field | Type | Required | Description |
@@ -651,6 +651,36 @@ Checks whether a specific pincode is within the allowed delivery areas. This is 
 
 **Response:**
 `true` if the pincode is allowed, `false` otherwise.
+
+### Add Allowed Pincode
+
+**POST** `/is-my-district-available`
+**Role Required:** `ADMIN`
+
+Adds a new pincode to the list of deliverable areas.
+
+**Request Body:**
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `pincode` | number | **Yes** | The pincode to add. |
+
+**Response:**
+Returns the created/updated `AllowedPincode` object.
+
+### Remove Allowed Pincode
+
+**DELETE** `/is-my-district-available/:pincode`
+**Role Required:** `ADMIN`
+
+Deactivates a pincode from the delivery areas.
+
+**Path Parameters:**
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `pincode` | number | **Yes** | The pincode to remove. |
+
+**Response:**
+`{ "success": true }`
 
 ### Get Platform Charges
 

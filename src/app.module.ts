@@ -21,6 +21,7 @@ import { RedisModule } from './redis/redis.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AllowedPincode } from './common/entities/allowed-pincode.entity';
 
 @Module({
   imports: [
@@ -97,6 +98,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     TransactionsModule,
     ReviewsModule,
     NotificationsModule,
+    TypeOrmModule.forFeature([AllowedPincode]),
   ],
   controllers: [AppController],
   providers: [
