@@ -3,13 +3,20 @@ import {
   BadRequestException,
   NotFoundException,
   Logger,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryRunner, Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { Order, OrderStatus, PaymentStatus } from './entities/order.entity';
+import {
+  Order,
+  OrderStatus,
+  PaymentStatus,
+  RefundStatus,
+} from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { FoodItem } from '../food-items/entities/food-item.entity';
@@ -17,6 +24,8 @@ import { FoodItemAvailability } from '../food-items/entities/food-item-availabil
 import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Kitchen } from '../kitchens/entities/kitchen.entity';
+import { PaymentsService } from './payments.service';
+import { addBusinessDays, toDateOnlyString } from '../common/utils/business-days';
 
 export interface RazorpayPaymentMeta {
   razorpayOrderId: string;
@@ -47,6 +56,8 @@ export class OrdersService {
     private configService: ConfigService,
     private usersService: UsersService,
     private notificationsService: NotificationsService,
+    @Inject(forwardRef(() => PaymentsService))
+    private readonly paymentsService: PaymentsService,
   ) {}
 
   private readonly logger = new Logger(OrdersService.name);
@@ -340,6 +351,10 @@ export class OrdersService {
 
     const savedOrder = await this.ordersRepo.save(order);
 
+    if (status === OrderStatus.REJECTED) {
+      return this.onOrderRejected(savedOrder);
+    }
+
     try {
       const client = await this.usersService.findOneById(order.client_id);
       if (client && client.fcm_token) {
@@ -348,9 +363,6 @@ export class OrdersService {
         if (status === OrderStatus.ACCEPTED) {
           title = 'Order Accepted!';
           body = 'Your order has been accepted and is being prepared.';
-        } else if (status === OrderStatus.REJECTED) {
-          title = 'Order Rejected';
-          body = 'Unfortunately, your order was rejected by the kitchen.';
         } else if (status === OrderStatus.READY) {
           title = 'Order Ready for Pickup!';
           body = 'Your order is ready and waiting for a delivery driver.';
@@ -370,5 +382,111 @@ export class OrdersService {
     }
 
     return savedOrder;
+  }
+
+  /**
+   * Auto-reject from Bull timeout job — same refund + notification path as kitchen reject.
+   */
+  async rejectPendingOrderByTimeout(orderId: string): Promise<void> {
+    const order = await this.ordersRepo.findOne({ where: { id: orderId } });
+    if (!order || order.status !== OrderStatus.PENDING) {
+      return;
+    }
+    order.status = OrderStatus.REJECTED;
+    const saved = await this.ordersRepo.save(order);
+    await this.onOrderRejected(saved);
+  }
+
+  private async onOrderRejected(order: Order): Promise<Order> {
+    const isPaid =
+      order.paymentStatus === PaymentStatus.PAID && !!order.razorpayPaymentId;
+
+    if (!isPaid) {
+      if (order.refund_status !== RefundStatus.NOT_APPLICABLE) {
+        order.refund_status = RefundStatus.NOT_APPLICABLE;
+        order.razorpay_refund_id = null;
+        order.refund_initiated_at = null;
+        order.refund_expected_by = null;
+        await this.ordersRepo.save(order);
+      }
+      await this.notifyClientOrderRejected(order, 'unpaid');
+      return (await this.findOne(order.id)) ?? order;
+    }
+
+    const refundResult =
+      await this.paymentsService.refundCapturedPaymentForOrder(order);
+
+    if (refundResult.type === 'already_recorded') {
+      await this.notifyClientOrderRejected(order, 'refund_pending');
+      return (await this.findOne(order.id)) ?? order;
+    }
+
+    if (
+      refundResult.type === 'success' ||
+      refundResult.type === 'already_refunded'
+    ) {
+      const initiatedAt = new Date();
+      order.refund_status = RefundStatus.PENDING;
+      order.razorpay_refund_id = refundResult.refundId;
+      order.refund_initiated_at = initiatedAt;
+      order.refund_expected_by = toDateOnlyString(
+        addBusinessDays(initiatedAt, 7),
+      );
+      await this.ordersRepo.save(order);
+      await this.notifyClientOrderRejected(order, 'refund_initiated');
+      return (await this.findOne(order.id)) ?? order;
+    }
+
+    order.refund_status = RefundStatus.FAILED;
+    await this.ordersRepo.save(order);
+    await this.notifyClientOrderRejected(order, 'refund_failed');
+    return (await this.findOne(order.id)) ?? order;
+  }
+
+  private async notifyClientOrderRejected(
+    order: Order,
+    kind: 'unpaid' | 'refund_initiated' | 'refund_pending' | 'refund_failed',
+  ): Promise<void> {
+    try {
+      const client = await this.usersService.findOneById(order.client_id);
+      if (!client?.fcm_token) {
+        return;
+      }
+
+      const title = 'Order Rejected';
+      let body: string;
+      switch (kind) {
+        case 'unpaid':
+          body =
+            'Unfortunately, your order was rejected by the kitchen.';
+          break;
+        case 'refund_initiated':
+        case 'refund_pending':
+          body =
+            'Your order was rejected. Your refund has been initiated and should appear within 5–7 business days.';
+          break;
+        case 'refund_failed':
+          body =
+            'Your order was rejected. We could not process your refund automatically — support will contact you shortly.';
+          break;
+      }
+
+      const latest = await this.findOne(order.id);
+      const refundStatus = latest?.refund_status ?? order.refund_status;
+      const refundExpectedBy = latest?.refund_expected_by ?? '';
+
+      await this.notificationsService.sendPushNotification(
+        client.fcm_token,
+        title,
+        body,
+        {
+          orderId: order.id,
+          refundStatus: String(refundStatus),
+          refundExpectedBy: refundExpectedBy ?? '',
+        },
+      );
+    } catch (notifErr) {
+      this.logger.error('Failed to send push notification to client', notifErr);
+    }
   }
 }

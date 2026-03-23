@@ -1,12 +1,11 @@
-import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { Module, forwardRef } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { JobsService } from './jobs.service';
-import { Order } from '../orders/entities/order.entity';
+import { OrdersModule } from '../orders/orders.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order]),
+    forwardRef(() => OrdersModule),
     BullModule.registerQueue({
       name: 'orders',
     }),

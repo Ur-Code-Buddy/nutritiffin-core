@@ -5,18 +5,25 @@ import crypto from 'crypto';
 import { PaymentsService } from './payments.service';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import {
+  Order,
+  PaymentStatus,
+  RefundStatus,
+} from './entities/order.entity';
 
 // Use `var` so the Razorpay mock can safely assign to these without TDZ issues.
 var ordersCreateMock: jest.Mock;
 var paymentsFetchMock: jest.Mock;
+var paymentsRefundMock: jest.Mock;
 
 jest.mock('razorpay', () => {
   ordersCreateMock = jest.fn();
   paymentsFetchMock = jest.fn();
+  paymentsRefundMock = jest.fn();
 
   return jest.fn().mockImplementation(() => ({
     orders: { create: ordersCreateMock },
-    payments: { fetch: paymentsFetchMock },
+    payments: { fetch: paymentsFetchMock, refund: paymentsRefundMock },
   }));
 });
 
@@ -45,6 +52,7 @@ describe('PaymentsService (Razorpay)', () => {
   beforeEach(async () => {
     ordersCreateMock.mockReset();
     paymentsFetchMock.mockReset();
+    paymentsRefundMock.mockReset();
 
     ordersService = {
       calculateOrderQuote: jest.fn(),
@@ -161,5 +169,64 @@ describe('PaymentsService (Razorpay)', () => {
 
     expect(paymentsFetchMock).toHaveBeenCalledWith(razorpayPaymentId);
     expect(ordersService.create).not.toHaveBeenCalled();
+  });
+
+  describe('refundCapturedPaymentForOrder', () => {
+    const paidOrder = {
+      id: 'ord-1',
+      paymentStatus: PaymentStatus.PAID,
+      razorpayPaymentId: 'pay_123',
+      total_price: 51,
+      refund_status: RefundStatus.NOT_APPLICABLE,
+      razorpay_refund_id: null,
+    } as Order;
+
+    it('returns not_paid when order has no Razorpay payment', async () => {
+      const unpaid = {
+        ...paidOrder,
+        paymentStatus: PaymentStatus.PENDING,
+        razorpayPaymentId: null,
+      } as Order;
+      const res = await paymentsService.refundCapturedPaymentForOrder(unpaid);
+      expect(res).toEqual({ type: 'not_paid' });
+      expect(paymentsRefundMock).not.toHaveBeenCalled();
+    });
+
+    it('returns already_recorded when refund already stored', async () => {
+      const order = {
+        ...paidOrder,
+        razorpay_refund_id: 'rfnd_old',
+        refund_status: RefundStatus.PENDING,
+      } as Order;
+      const res = await paymentsService.refundCapturedPaymentForOrder(order);
+      expect(res).toEqual({
+        type: 'already_recorded',
+        refundId: 'rfnd_old',
+      });
+      expect(paymentsRefundMock).not.toHaveBeenCalled();
+    });
+
+    it('calls Razorpay refund with amount in paise', async () => {
+      paymentsRefundMock.mockResolvedValue({ id: 'rfnd_new' });
+      const res = await paymentsService.refundCapturedPaymentForOrder(paidOrder);
+      expect(paymentsRefundMock).toHaveBeenCalledWith('pay_123', {
+        amount: 5100,
+      });
+      expect(res).toEqual({ type: 'success', refundId: 'rfnd_new' });
+    });
+
+    it('reconciles already-refunded payment when refund throws', async () => {
+      paymentsRefundMock.mockRejectedValue(new Error('already refunded'));
+      paymentsFetchMock.mockResolvedValue({
+        amount: 5100,
+        amount_refunded: 5100,
+        refunds: { items: [{ id: 'rfnd_existing' }] },
+      });
+      const res = await paymentsService.refundCapturedPaymentForOrder(paidOrder);
+      expect(res).toEqual({
+        type: 'already_refunded',
+        refundId: 'rfnd_existing',
+      });
+    });
   });
 });

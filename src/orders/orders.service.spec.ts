@@ -3,7 +3,13 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { getQueueToken } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
 import { OrdersService } from './orders.service';
-import { Order, OrderStatus } from './entities/order.entity';
+import { PaymentsService } from './payments.service';
+import {
+  Order,
+  OrderStatus,
+  PaymentStatus,
+  RefundStatus,
+} from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { FoodItem } from '../food-items/entities/food-item.entity';
 import { UsersService } from '../users/users.service';
@@ -12,8 +18,10 @@ import { NotificationsService } from '../notifications/notifications.service';
 describe('OrdersService', () => {
   let service: OrdersService;
   let module: TestingModule;
+  let refundCapturedPaymentForOrder: jest.Mock;
 
   beforeEach(async () => {
+    refundCapturedPaymentForOrder = jest.fn();
     module = await Test.createTestingModule({
       providers: [
         OrdersService,
@@ -101,6 +109,12 @@ describe('OrdersService', () => {
             sendPushNotification: jest.fn(),
           },
         },
+        {
+          provide: PaymentsService,
+          useValue: {
+            refundCapturedPaymentForOrder,
+          },
+        },
       ],
     }).compile();
 
@@ -111,6 +125,9 @@ describe('OrdersService', () => {
     expect(service).toBeDefined();
   });
   it('should calculate total_price correctly', async () => {
+    jest.useFakeTimers({
+      now: new Date(Date.UTC(2026, 2, 20, 12, 0, 0)),
+    });
     const foodItem = {
       id: 'item-1',
       price: 10,
@@ -120,9 +137,7 @@ describe('OrdersService', () => {
     };
     const createDto = {
       kitchen_id: 'kitchen-1',
-      scheduled_for: new Date(Date.now() + 86400000)
-        .toISOString()
-        .split('T')[0], // Tomorrow
+      scheduled_for: '2026-03-21',
       items: [{ food_item_id: 'item-1', quantity: 2 }],
     };
 
@@ -171,16 +186,16 @@ describe('OrdersService', () => {
       expect.any(String),
       expect.objectContaining({ orderId: 'order-1' }),
     );
+    jest.useRealTimers();
   });
 
   it('should accept orders for tomorrow (1 day in advance)', async () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dateStr = tomorrow.toISOString().split('T')[0];
-
+    jest.useFakeTimers({
+      now: new Date(Date.UTC(2026, 2, 20, 12, 0, 0)),
+    });
     const createDto = {
       kitchen_id: 'kitchen-1',
-      scheduled_for: dateStr,
+      scheduled_for: '2026-03-21',
       items: [{ food_item_id: 'item-1', quantity: 1 }],
     };
 
@@ -188,6 +203,7 @@ describe('OrdersService', () => {
 
     const result = await service.create('client-1', createDto as any);
     expect(result).toBeDefined();
+    jest.useRealTimers();
   });
 
   it('should accept orders for 3 days in advance', async () => {
@@ -223,9 +239,10 @@ describe('OrdersService', () => {
   });
 
   it('should reject orders for 4 days in advance', async () => {
+    setupMocks();
     const future = new Date();
     future.setDate(future.getDate() + 4);
-    const dateStr = future.toISOString().split('T')[0];
+    const dateStr = `${future.getFullYear()}-${String(future.getMonth() + 1).padStart(2, '0')}-${String(future.getDate()).padStart(2, '0')}`;
 
     const createDto = {
       kitchen_id: 'kitchen-1',
@@ -257,6 +274,90 @@ describe('OrdersService', () => {
     expect(result.status).toBe(OrderStatus.ACCEPTED);
     expect(result.accepted_at).toBeDefined();
     expect(result.accepted_at instanceof Date).toBeTruthy();
+  });
+
+  it('on reject, refunds paid orders and sets refund fields', async () => {
+    refundCapturedPaymentForOrder.mockResolvedValue({
+      type: 'success',
+      refundId: 'rfnd_1',
+    });
+
+    const orderState: Record<string, any> = {
+      id: 'order-1',
+      status: OrderStatus.PENDING,
+      client_id: 'client-1',
+      paymentStatus: PaymentStatus.PAID,
+      razorpayPaymentId: 'pay_x',
+      refund_status: RefundStatus.NOT_APPLICABLE,
+      razorpay_refund_id: null,
+      refund_initiated_at: null,
+      refund_expected_by: null,
+    };
+
+    const mockOrdersRepo = module.get(getRepositoryToken(Order));
+    mockOrdersRepo.findOne.mockImplementation(() =>
+      Promise.resolve({ ...orderState }),
+    );
+    mockOrdersRepo.save.mockImplementation((o: any) => {
+      Object.assign(orderState, o);
+      return Promise.resolve({ ...orderState });
+    });
+
+    const mockUsersService = module.get(UsersService) as jest.Mocked<UsersService>;
+    mockUsersService.findOneById.mockResolvedValue({
+      id: 'client-1',
+      fcm_token: 'fcm_tok',
+    } as any);
+
+    const mockNotificationsService =
+      module.get(NotificationsService) as jest.Mocked<NotificationsService>;
+
+    const result = await service.updateStatus('order-1', OrderStatus.REJECTED);
+
+    expect(refundCapturedPaymentForOrder).toHaveBeenCalled();
+    expect(result.status).toBe(OrderStatus.REJECTED);
+    expect(result.refund_status).toBe(RefundStatus.PENDING);
+    expect(result.razorpay_refund_id).toBe('rfnd_1');
+    expect(result.refund_expected_by).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(mockNotificationsService.sendPushNotification).toHaveBeenCalledWith(
+      'fcm_tok',
+      'Order Rejected',
+      expect.stringContaining('5–7 business days'),
+      expect.objectContaining({
+        orderId: 'order-1',
+        refundStatus: RefundStatus.PENDING,
+      }),
+    );
+  });
+
+  it('on reject, skips Razorpay for unpaid orders', async () => {
+    const orderState: Record<string, any> = {
+      id: 'order-1',
+      status: OrderStatus.PENDING,
+      client_id: 'client-1',
+      paymentStatus: PaymentStatus.PENDING,
+      razorpayPaymentId: null,
+      refund_status: RefundStatus.NOT_APPLICABLE,
+    };
+
+    const mockOrdersRepo = module.get(getRepositoryToken(Order));
+    mockOrdersRepo.findOne.mockImplementation(() =>
+      Promise.resolve({ ...orderState }),
+    );
+    mockOrdersRepo.save.mockImplementation((o: any) => {
+      Object.assign(orderState, o);
+      return Promise.resolve({ ...orderState });
+    });
+
+    const mockUsersService = module.get(UsersService) as jest.Mocked<UsersService>;
+    mockUsersService.findOneById.mockResolvedValue({
+      id: 'client-1',
+      fcm_token: 'fcm_tok',
+    } as any);
+
+    await service.updateStatus('order-1', OrderStatus.REJECTED);
+
+    expect(refundCapturedPaymentForOrder).not.toHaveBeenCalled();
   });
 
   function setupMocks() {

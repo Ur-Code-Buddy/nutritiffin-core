@@ -629,6 +629,10 @@ For **advance payment** before persisting the order, use `**POST /payments/initi
 | `paymentStatus`     | enum   | `PENDING` (e.g. legacy `POST /orders`) or `PAID` (Razorpay confirm path). |
 | `razorpayOrderId`   | string | null                                                                      |
 | `razorpayPaymentId` | string | null                                                                      |
+| `refund_status`     | enum   | `NOT_APPLICABLE` (unpaid / no refund), `PENDING` (refund initiated), `COMPLETED`, `FAILED`. |
+| `razorpay_refund_id`| string | Razorpay refund id when a refund was created; otherwise null.              |
+| `refund_initiated_at` | string (ISO) | When the refund was requested; null if none.                          |
+| `refund_expected_by` | string | `YYYY-MM-DD` (UTC calendar); use for “expect by” copy (e.g. 5–7 business days after initiation). Null if not applicable. |
 
 
 ### Get All Orders
@@ -672,9 +676,18 @@ Retrieves details of a specific order.
     "id": "driver-uuid",
     "name": "Driver Name",
     "phone_number": "9876543210"
-  }
+  },
+  "paymentStatus": "PAID",
+  "razorpayOrderId": "order_...",
+  "razorpayPaymentId": "pay_...",
+  "refund_status": "NOT_APPLICABLE",
+  "razorpay_refund_id": null,
+  "refund_initiated_at": null,
+  "refund_expected_by": null
 }
 ```
+
+When a **paid** order is **rejected** (kitchen reject or auto timeout), the backend creates a **full Razorpay refund**, sets `refund_status` to `PENDING`, and fills `refund_expected_by` (7 business days after initiation, UTC). The client receives a push notification with refund messaging. Unpaid (legacy) orders get `refund_status` `NOT_APPLICABLE`.
 
 ### Accept Order
 
@@ -695,7 +708,7 @@ Marks an order as `READY` for pickup.
 **PATCH** `/orders/:id/reject`
 **Role Required:** `KITCHEN_OWNER`
 
-Marks an order as `REJECTED`.
+Marks an order as `REJECTED`. If the order was **paid** via Razorpay, the server **initiates a full refund** and updates `refund_status`, `razorpay_refund_id`, `refund_initiated_at`, and `refund_expected_by`. A **push notification** is sent to the customer (including refund copy when applicable).
 
 ---
 

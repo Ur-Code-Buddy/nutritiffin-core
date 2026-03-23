@@ -1,16 +1,31 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  forwardRef,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrdersService, RazorpayPaymentMeta } from './orders.service';
 import { ConfirmPaymentDto } from './dto/confirm-payment.dto';
+import { Order, PaymentStatus, RefundStatus } from './entities/order.entity';
+
+export type RefundCapturedPaymentResult =
+  | { type: 'not_paid' }
+  | { type: 'already_recorded'; refundId: string }
+  | { type: 'success'; refundId: string }
+  | { type: 'already_refunded'; refundId: string }
+  | { type: 'error'; message: string };
 
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
 
   constructor(
+    @Inject(forwardRef(() => OrdersService))
     private readonly ordersService: OrdersService,
     private readonly configService: ConfigService,
   ) {}
@@ -136,6 +151,80 @@ export class PaymentsService {
       // Avoid leaking Razorpay internals; surface order validation issues as BadRequest.
       this.logger.error('Failed to create paid order', err?.message ?? err);
       throw err;
+    }
+  }
+
+  /**
+   * Full refund in paise for a captured payment. Idempotent when order already has a recorded refund.
+   */
+  async refundCapturedPaymentForOrder(
+    order: Order,
+  ): Promise<RefundCapturedPaymentResult> {
+    if (
+      order.paymentStatus !== PaymentStatus.PAID ||
+      !order.razorpayPaymentId
+    ) {
+      return { type: 'not_paid' };
+    }
+
+    if (
+      order.razorpay_refund_id &&
+      (order.refund_status === RefundStatus.PENDING ||
+        order.refund_status === RefundStatus.COMPLETED)
+    ) {
+      return { type: 'already_recorded', refundId: order.razorpay_refund_id };
+    }
+
+    const { client: razorpay } = this.getRazorpayClient();
+    const amountPaise = Math.round(Number(order.total_price) * 100);
+    if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
+      return { type: 'error', message: 'Invalid order amount for refund' };
+    }
+
+    try {
+      const refund = (await razorpay.payments.refund(
+        order.razorpayPaymentId,
+        { amount: amountPaise },
+      )) as { id?: string };
+      if (!refund?.id) {
+        return { type: 'error', message: 'Razorpay refund returned no id' };
+      }
+      return { type: 'success', refundId: refund.id };
+    } catch (err: any) {
+      const desc =
+        err?.error?.description || err?.message || String(err);
+      this.logger.warn(
+        `Razorpay refund failed for order ${order.id}: ${desc}`,
+      );
+
+      try {
+        const payment = (await razorpay.payments.fetch(
+          order.razorpayPaymentId,
+        )) as {
+          amount?: number | string;
+          amount_refunded?: number | string;
+          refunds?: { items?: { id: string }[] };
+        };
+        const amt = Number(payment.amount);
+        const refunded = Number(payment.amount_refunded ?? 0);
+        if (refunded >= amt && amt > 0) {
+          const items = payment.refunds?.items ?? [];
+          const last = items[items.length - 1];
+          if (last?.id) {
+            return { type: 'already_refunded', refundId: last.id };
+          }
+          return {
+            type: 'error',
+            message: 'Payment appears refunded but refund id unavailable',
+          };
+        }
+      } catch (fetchErr: any) {
+        this.logger.warn(
+          `Could not reconcile payment after refund error: ${fetchErr?.message ?? fetchErr}`,
+        );
+      }
+
+      return { type: 'error', message: desc };
     }
   }
 }

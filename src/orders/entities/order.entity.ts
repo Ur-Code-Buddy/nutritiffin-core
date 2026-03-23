@@ -27,6 +27,13 @@ export enum PaymentStatus {
   PAID = 'PAID',
 }
 
+export enum RefundStatus {
+  NOT_APPLICABLE = 'NOT_APPLICABLE',
+  PENDING = 'PENDING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+}
+
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn('uuid')
@@ -62,6 +69,22 @@ export class Order {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   razorpayPaymentId: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: RefundStatus,
+    default: RefundStatus.NOT_APPLICABLE,
+  })
+  refund_status: RefundStatus;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  razorpay_refund_id: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  refund_initiated_at: Date | null;
+
+  @Column({ type: 'date', nullable: true })
+  refund_expected_by: string | null;
 
   @OneToMany(() => OrderItem, (item) => item.order, { cascade: true })
   items: OrderItem[];
