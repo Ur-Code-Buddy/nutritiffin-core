@@ -1,546 +1,329 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/🍱-NutriTiffin-E0234E?style=for-the-badge&labelColor=1a1a2e" alt="NutriTiffin" />
+  <img src="https://img.shields.io/badge/NutriTiffin-Backend-1a1a2e?style=for-the-badge&labelColor=E0234E&color=1a1a2e" alt="NutriTiffin Backend" />
 </p>
 
-<h1 align="center">NutriTiffin Backend</h1>
+<h1 align="center">NutriTiffin — Backend API</h1>
 
 <p align="center">
-  <strong>Connecting Home Kitchens with Healthy Eaters through Robust Technology.</strong>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/NestJS-%23E0234E.svg?style=for-the-badge&logo=nestjs&logoColor=white" alt="NestJS" />
-  <img src="https://img.shields.io/badge/TypeScript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/PostgreSQL-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
-  <img src="https://img.shields.io/badge/Redis-%23DD0031.svg?style=for-the-badge&logo=redis&logoColor=white" alt="Redis" />
-  <img src="https://img.shields.io/badge/Docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
-  <img src="https://img.shields.io/badge/AWS%20S3-%23FF9900.svg?style=for-the-badge&logo=amazon-aws&logoColor=white" alt="AWS S3" />
-  <img src="https://img.shields.io/badge/BullMQ-%23CF4647.svg?style=for-the-badge&logo=bull&logoColor=white" alt="BullMQ" />
+  <strong>Production-style REST API for a home-kitchen meal marketplace: subscriptions, credits, deliveries, and payments.</strong>
 </p>
 
 <p align="center">
-  <a href="#-features"><strong>Features</strong></a> ·
-  <a href="#%EF%B8%8F-architecture"><strong>Architecture</strong></a> ·
-  <a href="#-getting-started"><strong>Quick Start</strong></a> ·
-  <a href="#-api-reference"><strong>API</strong></a> ·
-  <a href="#-documentation"><strong>Docs</strong></a>
+  <a href="https://nestjs.com/"><img src="https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white" alt="NestJS" /></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript" /></a>
+  <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL" /></a>
+  <a href="https://redis.io/"><img src="https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=white" alt="Redis" /></a>
+  <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" alt="Docker" /></a>
+</p>
+
+<p align="center">
+  <a href="#for-recruiters--interviewers"><b>Recruiter summary</b></a> ·
+  <a href="#what-this-project-is"><b>Overview</b></a> ·
+  <a href="#technical-highlights"><b>Highlights</b></a> ·
+  <a href="#architecture"><b>Architecture</b></a> ·
+  <a href="#getting-started"><b>Quick start</b></a> ·
+  <a href="#api-overview"><b>API</b></a> ·
+  <a href="#documentation"><b>Docs</b></a>
 </p>
 
 ---
 
-## 🚀 The Mission
+## For recruiters & interviewers
 
-**NutriTiffin** is a comprehensive food delivery platform designed to bridge the gap between talented home chefs and individuals seeking authentic, healthy, home-cooked meals.
-
-Unlike generic food delivery apps, NutriTiffin focuses on **specific dietary needs**, **scheduled meal subscriptions**, and **empowering small-scale kitchen owners** with professional management tools.
-
-| Stakeholder | Value Proposition |
+| | |
 | :--- | :--- |
-| 🍽️ **Clients** | Access to verified home-cooked meals, subscription plans, and transparent nutritional info. |
-| 👨‍🍳 **Kitchen Owners** | A "business-in-a-box" solution for managing menus, orders, and earnings. |
-| 🚚 **Delivery Drivers** | Efficient, gig-economy friendly driver dispatch system with credit-based payouts. |
-| 🛡️ **Admins** | Full oversight — user management, credit allocation, and transaction auditing. |
+| **Domain** | B2C marketplace connecting **home kitchens** with customers who want **healthy, home-cooked meals**—not a generic restaurant-aggregator clone. |
+| **What this repository is** | The **backend only**: a **NestJS** modular monolith exposing **REST JSON APIs** for clients, kitchen owners, delivery drivers, and admins. |
+| **What it demonstrates** | **RBAC** with JWT, **PostgreSQL + TypeORM** with transactional credit operations and **pessimistic locking**, **Razorpay** payment initiation/confirmation, **AWS S3** uploads, **Redis + BullMQ** for background work, **rate limiting**, and structured **API documentation** under `docs/`. |
+| **Who uses the API** | Four roles: `CLIENT`, `KITCHEN_OWNER`, `DELIVERY_DRIVER`, `ADMIN`—each with distinct endpoints and guards. |
+
+**One sentence:** *NutriTiffin’s backend orchestrates discovery, ordering, Razorpay-backed checkout, delivery state, an auditable in-app credit ledger, and admin operations—with security and data integrity treated as first-class concerns.*
 
 ---
 
-## ✨ Features
+## What this project is
 
-<table>
-  <tr>
-    <td width="50%">
+**NutriTiffin** is a food-platform backend aimed at **scheduled meals**, **diet-aware offerings**, and **small kitchen operators** who need tooling comparable to larger delivery apps—menus, caps on daily orders, earnings, and driver handoff.
 
-### 💳 Secure Credit System
-Integer-based Rupee credit wallets backed by **TypeORM transaction blocks** with **pessimistic row-level locking** — guaranteeing safe balance operations under high concurrency.
+**Stakeholders and value**
 
-</td>
-    <td width="50%">
-
-### 📒 Transaction Ledger
-Every single credit movement is recorded — admin add/deduct, delivery payouts, order payments — with human-readable short IDs (`TXN-A1B2C3`) and full audit trails.
-
-</td>
-  </tr>
-  <tr>
-    <td>
-
-### 🔐 Role-Based Access Control
-Four distinct roles — `CLIENT`, `KITCHEN_OWNER`, `DELIVERY_DRIVER`, `ADMIN` — enforced at the Guard & Decorator level, providing secure separation of duties across the entire API.
-
-</td>
-    <td>
-
-### 📦 Order State Machine
-Orders follow a strict finite state machine:
-
-```
-PENDING → ACCEPTED → PICKED_UP → OUT_FOR_DELIVERY → DELIVERED
-                 ↘ REJECTED
-```
-
-</td>
-  </tr>
-  <tr>
-    <td>
-
-### 💰 Three-Tier Fee System
-Configurable fee breakdown per order:
-- **Platform Fees** — charged to the platform
-- **Kitchen Fees** — deducted from kitchen earnings
-- **Delivery Fees** — allocated to delivery drivers
-
-</td>
-    <td>
-
-### 📅 Smart Menu Availability
-Menus automatically respect daily order limits and per-day availability schedules (`monday`, `friday`, etc.), ensuring kitchens never get overwhelmed.
-
-</td>
-  </tr>
-  <tr>
-    <td>
-
-### ✉️ Email Verification Flow
-Full email verification lifecycle — register → verify token → login. Powered by **Brevo (Sendinblue)**, with resend support and rate limiting.
-
-</td>
-    <td>
-
-### 🖼️ Media Uploads via S3
-Seamless image uploads (avatars, food photos) to **AWS S3**, with presigned URLs and 5MB file-size validation.
-
-</td>
-  </tr>
-</table>
+| Stakeholder | Value |
+| :--- | :--- |
+| **Clients** | Browse kitchens and menus, place orders, pay via Razorpay, track delivery, review items/kitchens. |
+| **Kitchen owners** | Manage profile, menu, availability, accept/reject orders, see earnings (fees split across platform, kitchen, delivery). |
+| **Delivery drivers** | Accept jobs, move orders through pickup → out for delivery → delivered; credit-based payout flows tie into the ledger. |
+| **Admins** | User oversight, credit add/deduct, transaction visibility, maintenance toggles. |
 
 ---
 
-## 🛡️ Security Practices
+## Technical highlights
 
-We take the security of our platform, our users, and their transactions very seriously. Here are the core practices and mechanisms we employ to protect NutriTiffin:
-
-### 1. Robust Authentication & Authorization
-- **JWT-Based Authentication**: Stateless, secure sessions using JSON Web Tokens.
-- **Role-Based Access Control (RBAC)**: Strict role definitions (`CLIENT`, `KITCHEN_OWNER`, `DELIVERY_DRIVER`, `ADMIN`) enforced via `@Roles()` decorators and `RolesGuard`.
-- **Admin Access Protection**: Elevated role registration requires a secure, secret `ADMIN_ACCESS_PASS` managed via environment variables.
-
-### 2. Multi-Factor Verification (MFA)
-- **Email Verification**: User registration triggers a Brevo-powered email validation loop to verify identity.
-- **SMS OTP Verification**: Critical actions and login enablement in production environments require Phone-level OTP verification, integrated through MessageCentral. Re-login is blocked until both Email and Phone verified tags are true.
-
-### 3. Data Integrity & Concurrency Guard
-- **Pessimistic Row-Level Locking**: Credit and wallet systems in PostgreSQL use `lock: { mode: 'pessimistic_write' }` in TypeORM. This absolutely prevents race conditions and double-spending when deducting or adding credits.
-- **Transaction Blocks**: Any complex movement of credits or data spanning multiple tables is wrapped in `.transaction()` blocks to guarantee ACID compliance.
-
-### 4. API Resilience & Rate Limiting
-- **Throttler Module**: NestJS `@nestjs/throttler` is actively used on sensitive endpoints (like `/auth/forgot-password`, `/auth/check-email-verified`) to prevent brute-force and DDoS attacks.
-- **Global Validation Pipes**: `class-validator` and `class-transformer` intercept bad payloads and ensure that our DTOs are strictly matched, sanitizing inputs by default.
-
-### 5. Separation of Environments
-- **Environment Targeting**: We safely decouple DEV and PRODUCTION setups using `PRODUCTION=true|false`. The system natively skips sending live emails/OTPs during local testing while strictly enforcing them in production.
-- **Secure File Storage**: User-uploaded media goes directly to AWS S3 utilizing scoped IAM keys, rather than congesting local or DB storage.
+- **Credit wallet & ledger** — Integer rupee balances with **TypeORM transactions** and **pessimistic row-level locking** to avoid race conditions on concurrent debits/credits. Movements are recorded with readable references (e.g. `TXN-…`) for support and audit.
+- **Role-based access** — `JwtAuthGuard`, `RolesGuard`, and `@Roles()` enforce separation across the API surface.
+- **Order lifecycle** — Explicit states (e.g. pending → accepted/rejected → picked up → out for delivery → delivered) keep kitchen and driver workflows consistent.
+- **Fees** — Configurable **platform**, **kitchen**, and **delivery** fee components per order (environment-driven defaults).
+- **Menus** — Items support **per-day availability** and **daily order limits** so kitchens do not oversell.
+- **Auth & trust** — Email verification (e.g. **Brevo**), SMS OTP path for production-style verification, password reset flows, and **throttling** on sensitive auth routes.
+- **Payments** — **Razorpay**: initiate from cart validation, confirm with signature verification before persisting paid orders.
+- **Media** — **AWS S3** for uploads (e.g. avatars, food images) with validation and presigned-style patterns as implemented in services.
+- **Async work** — **Redis** + **BullMQ** (e.g. order-related jobs via `JobsModule`).
+- **Push (optional)** — **Firebase Admin** in `NotificationsModule` for FCM when a service account key is present.
 
 ---
 
-## 🏗️ Architecture
+## Security practices (summary)
 
-The backend is built as a **modular monolith** using [NestJS](https://nestjs.com/), ensuring strict separation of concerns and end-to-end type safety.
+1. **Authentication & authorization** — JWT sessions; RBAC; admin registration gated by `ADMIN_ACCESS_PASS`.
+2. **Verification** — Email verification; SMS OTP for stricter production paths (see `docs/guide-otp-implementation.md`).
+3. **Data integrity** — DB transactions and pessimistic locks where balances or multi-table updates occur.
+4. **API hardening** — Global validation pipes (`class-validator` / `class-transformer`); NestJS throttler with environment-aware limits.
+5. **Secrets & environments** — Configuration via env vars; `PRODUCTION` flag controls stricter vs. developer-friendly behavior (e.g. OTP bypass locally when disabled).
+6. **Object storage** — User media in S3 with IAM-scoped credentials rather than local disk in production setups.
 
-### High-Level Data Flow
+---
+
+## Architecture
+
+Modular **NestJS 11** monolith on **Node.js 20+**, **TypeScript**, **PostgreSQL** via **TypeORM**, **Redis** for BullMQ and caching-style use, and **AWS S3** for files.
+
+### Request path (high level)
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                      Client / Mobile Apps                       │
-└────────────────────────────┬─────────────────────────────────────┘
-                             │  RESTful JSON
-                             ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                   NestJS API Gateway (Port 3000)                │
-│  ┌────────────┐  ┌──────────────┐  ┌───────────────────────┐   │
-│  │  JWT Auth   │  │  Rate Limit  │  │  RBAC Guards          │   │
-│  │  (Passport) │  │  (Throttler) │  │  (Roles Decorator)    │   │
-│  └────────────┘  └──────────────┘  └───────────────────────┘   │
-└────────────────────────────┬─────────────────────────────────────┘
-                             │
-          ┌──────────────────┼──────────────────────┐
-          ▼                  ▼                       ▼
-┌──────────────┐   ┌─────────────────┐   ┌───────────────────┐
-│  PostgreSQL  │   │     Redis       │   │     AWS S3        │
-│  (TypeORM)   │   │ (Cache + Queues)│   │  (Media Storage)  │
-│              │   │                 │   │                   │
-│ • Users      │   │ • BullMQ Jobs   │   │ • Food Images     │
-│ • Kitchens   │   │ • Session Cache │   │ • User Avatars    │
-│ • Orders     │   │                 │   │                   │
-│ • Food Items │   └─────────────────┘   └───────────────────┘
-│ • Transactions│
-└──────────────┘
+┌─────────────────────────┐
+│  Web / mobile clients   │
+└───────────┬─────────────┘
+            │  HTTPS / JSON
+            ▼
+┌─────────────────────────────────────────┐
+│  NestJS API                             │
+│  JWT · Throttler · RBAC · DTO validation │
+└───────────┬─────────────────────────────┘
+            │
+     ┌──────┴──────┬──────────────┐
+     ▼             ▼              ▼
+ PostgreSQL     Redis         AWS S3
+ (TypeORM)    (BullMQ etc.)   (media)
 ```
 
-### Module Dependency Graph
+### Module map (conceptual)
 
 ```
 AppModule
-├── AuthModule ─────────── JWT strategy, Guards, Login/Register
-├── UsersModule ────────── User CRUD, Credit management, Admin tools
-├── KitchensModule ─────── Kitchen profiles, Operating hours
-├── FoodItemsModule ────── Menu items, Availability, Daily limits
-├── OrdersModule ───────── Order placement, State transitions, Fee calc
-├── DeliveriesModule ───── Driver dispatch, Pickup → Delivery flow
-├── TransactionsModule ─── Credit ledger, Audit trail
-├── UploadModule ───────── S3 image upload
-├── QueueModule ────────── BullMQ queue registration
-├── JobsModule ─────────── Background job processors
-├── RedisModule ────────── Redis connection factory
-└── CommonModule ───────── Shared filters, DTOs, S3 client, Utilities
+├── AuthModule           JWT, registration, verification, password flows
+├── UsersModule          Profiles, credits, admin user/credit actions
+├── KitchensModule       Kitchen CRUD, operating context
+├── FoodItemsModule      Menu, availability, daily limits
+├── OrdersModule         Orders, state transitions, Razorpay payments
+├── DeliveriesModule     Driver workflow
+├── TransactionsModule   Credit ledger, listings
+├── UploadModule         S3 uploads
+├── JobsModule           BullMQ-backed background processing
+├── ReviewsModule        Client reviews for items/kitchens
+├── NotificationsModule  FCM (Firebase Admin) when configured
+├── RedisModule          Redis connectivity
+└── CommonModule         Shared filters, DTOs, utilities, S3 helpers
 ```
 
 ---
 
-## 🛠️ Tech Stack
+## Tech stack
 
-| Layer | Technology | Why |
-| :--- | :--- | :--- |
-| **Runtime** | [Node.js 20](https://nodejs.org/) | LTS runtime with excellent async I/O |
-| **Framework** | [NestJS 11](https://nestjs.com/) | Opinionated architecture, DI, first-class TypeScript |
-| **Language** | [TypeScript 5](https://www.typescriptlang.org/) | End-to-end type safety, superior DX |
-| **Database** | [PostgreSQL](https://www.postgresql.org/) | ACID-compliant, JSONB support, robust relational queries |
-| **ORM** | [TypeORM](https://typeorm.io/) | Decorators-based entity mapping, migrations, query builder |
-| **Cache / Queues** | [Redis](https://redis.io/) + [BullMQ](https://docs.bullmq.io/) | High-speed caching and reliable background job processing |
-| **Auth** | [Passport.js](http://www.passportjs.org/) + JWT | Industry-standard authentication with token-based sessions |
-| **Storage** | [AWS S3](https://aws.amazon.com/s3/) | Scalable object storage with presigned URL support |
-| **Email** | [Brevo (Sendinblue)](https://www.brevo.com/) | Transactional email for verification flows |
-| **Validation** | [class-validator](https://github.com/typestack/class-validator) + [class-transformer](https://github.com/typestack/class-transformer) | Declarative DTO validation and serialization |
-| **Containerization** | [Docker](https://www.docker.com/) | Multi-stage builds, consistent dev-to-prod environments |
+| Layer | Technology |
+| :--- | :--- |
+| Runtime | Node.js 20+ |
+| Framework | NestJS 11 |
+| Language | TypeScript 5 |
+| Database | PostgreSQL |
+| ORM | TypeORM |
+| Cache / queues | Redis, BullMQ |
+| Auth | Passport, JWT |
+| Payments | Razorpay |
+| Email | Brevo (Sendinblue) |
+| Storage | AWS S3 (`@aws-sdk/client-s3`) |
+| Push | Firebase Admin (optional) |
+| Validation | class-validator, class-transformer |
+| Containers | Docker, Docker Compose |
 
 ---
 
-## 🚀 Getting Started
+## Getting started
 
 ### Prerequisites
 
-| Tool | Version | Required |
-| :--- | :--- | :---: |
-| Node.js | `20+` | ✅ |
-| npm | `9+` | ✅ |
-| Docker & Docker Compose | Latest | Recommended |
-| PostgreSQL | `15+` | If not using Docker |
-| Redis | `7+` | If not using Docker |
+| Tool | Notes |
+| :--- | :--- |
+| Node.js | 20+ |
+| npm | 9+ |
+| Docker & Docker Compose | Recommended for Redis + consistent setup |
+| PostgreSQL / Redis | Required if not using Compose for those services |
 
-### Option 1 — Docker (Recommended)
-
-Spin up the full stack (API + Redis) in seconds:
+### Option A — Docker (recommended)
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/Ur-Code-Buddy/nutribackend.git
 cd nutribackend
-
-# 2. Set up environment variables
 cp .env.example .env
-# ✏️  Edit .env with your DB, AWS, and Brevo credentials
+# Edit .env: database, JWT, AWS, Brevo, Razorpay, etc.
 
-# 3. Launch everything
 docker-compose up --build
 ```
 
-The API will be available at **`http://localhost:3000`**.
+API base URL: **`http://localhost:3000`** (adjust if mapped differently).
 
-### Option 2 — Local Development
+### Option B — Local
 
 ```bash
-# 1. Clone and install
 git clone https://github.com/Ur-Code-Buddy/nutribackend.git
 cd nutribackend
 npm install
-
-# 2. Configure
 cp .env.example .env
-# ✏️  Edit .env — point to your local PostgreSQL & Redis
-
-# 3. Start in watch mode (auto-reload)
 npm run start:dev
 ```
 
-### Environment Variables
+### Environment variables
+
+Copy `.env.example` and fill in values. Common groups:
+
+- **Database** — `DB_*` or a single `DATABASE_URL` (supported in `AppModule` TypeORM config).
+- **Auth** — `JWT_SECRET`, `JWT_EXPIRATION`, `ADMIN_ACCESS_PASS` (admin signup).
+- **AWS S3** — `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_BUCKET_NAME`.
+- **Redis** — `REDIS_HOST`, `REDIS_PORT`, optional `REDIS_TLS`, `REDIS_PASSWORD`.
+- **Fees** — `PLATFORM_FEES`, `KITCHEN_FEES`, `DELIVERY_FEES` (rupee amounts).
+- **Email / URLs** — `BREVO_API_KEY`, `BASE_URL`, `FRONTEND_URL`.
+- **Behavior** — `PRODUCTION` (`true`/`false`) affects throttling and verification strictness.
 
 <details>
-<summary><strong>📋 Click to expand full <code>.env</code> reference</strong></summary>
+<summary><strong>Expanded variable list</strong></summary>
 
-| Variable | Description | Default |
-| :--- | :--- | :---: |
-| `DB_HOST` | PostgreSQL host | — |
-| `DB_PORT` | PostgreSQL port | `5432` |
-| `DB_USERNAME` | Database username | `postgres` |
-| `DB_PASSWORD` | Database password | — |
-| `DB_NAME` | Database name | `postgres` |
-| `DB_SSL` | Enable SSL for DB connection | `true` |
-| `JWT_SECRET` | Secret key for JWT signing | — |
-| `JWT_EXPIRATION` | Token expiry duration | `1d` |
-| `AWS_ACCESS_KEY_ID` | AWS IAM access key | — |
-| `AWS_SECRET_ACCESS_KEY` | AWS IAM secret key | — |
-| `AWS_REGION` | S3 bucket region | `us-east-1` |
-| `AWS_BUCKET_NAME` | S3 bucket name | — |
-| `REDIS_HOST` | Redis host | `localhost` |
-| `REDIS_PORT` | Redis port | `6379` |
-| `REDIS_TLS` | Enable Redis TLS | `false` |
-| `CURRENT_VERSION` | API version string | `1.0.0` |
-| `PLATFORM_FEES` | Platform fee (₹) charged per order | `10` |
-| `KITCHEN_FEES` | Kitchen fee (₹) per order | `15` |
-| `DELIVERY_FEES` | Delivery fee (₹) per order | `20` |
-| `ADMIN_ACCESS_PASS` | Secret pass to register as Admin | — |
-| `BREVO_API_KEY` | Brevo (Sendinblue) API key | — |
-| `BASE_URL` | Backend base URL | — |
-| `FRONTEND_URL` | Frontend app URL (for email redirects) | — |
+| Variable | Description |
+| :--- | :--- |
+| `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME` | PostgreSQL connection |
+| `DB_SSL` | SSL for DB |
+| `DATABASE_URL` | Alternative single URL for Postgres |
+| `JWT_SECRET`, `JWT_EXPIRATION` | JWT signing |
+| `AWS_*` | S3 credentials and bucket |
+| `REDIS_*` | Redis connection |
+| `CURRENT_VERSION` | API version string |
+| `PLATFORM_FEES`, `KITCHEN_FEES`, `DELIVERY_FEES` | Per-order fee defaults |
+| `ADMIN_ACCESS_PASS` | Admin registration secret |
+| `BREVO_API_KEY` | Transactional email |
+| `BASE_URL`, `FRONTEND_URL` | App URLs for links and CORS-related config |
 
 </details>
 
 ---
 
-## 📡 API Reference
+## API overview
 
-Below is a summary of all available endpoints. For full request/response schemas, see [**`docs/endpoints.md`**](docs/endpoints.md).
+Authoritative request/response detail lives in **[`docs/api-reference.md`](docs/api-reference.md)**.
 
-### Authentication
+**Surface area (summary)**
 
-| Method | Endpoint | Auth | Description |
-| :---: | :--- | :---: | :--- |
-| `POST` | `/auth/register` | — | Register a new user |
-| `POST` | `/auth/login` | — | Login & receive JWT |
-| `GET` | `/auth/verify-email` | — | Verify email via token |
-| `POST` | `/auth/resend-verification` | — | Resend verification email |
-| `POST` | `/auth/retry-email-login` | — | Retry sending verification |
-| `POST` | `/auth/check-email-verified` | — | Check verification status |
-| `POST` | `/auth/forgot-password` | — | Initiate password reset flow via OTP |
-| `POST` | `/auth/reset-password` | — | Complete password reset using OTP |
-| `POST` | `/auth/resend-phone-otp` | — | Dispatch SMS OTP via MessageCentral |
-| `POST` | `/auth/verify-phone` | 🔑 Any | Verify SMS OTP and mark phone verified |
-
-### Users & Administration
-
-| Method | Endpoint | Auth | Description |
-| :---: | :--- | :---: | :--- |
-| `GET` | `/users/check-username/:username` | — | Check if a username exists (rate limited) |
-| `GET` | `/users/me` | 🔑 Any | Get current user profile |
-| `PATCH` | `/users/me` | 🔑 Any | Update own profile (address, phone, pincode) |
-| `GET` | `/admin/users` | 🛡️ Admin | List all users |
-| `POST` | `/admin/credits/add` | 🛡️ Admin | Add credits to a user |
-| `POST` | `/admin/credits/deduct` | 🛡️ Admin | Deduct credits from a user |
-| `POST` | `/admin/users/:id/disable` | 🛡️ Admin | Disable a user account |
-| `POST` | `/admin/users/:id/enable` | 🛡️ Admin | Enable a user account |
-
-### Kitchens
-
-| Method | Endpoint | Auth | Description |
-| :---: | :--- | :---: | :--- |
-| `POST` | `/kitchens` | 👨‍🍳 Owner | Create kitchen profile |
-| `GET` | `/kitchens` | — | List all active kitchens |
-| `GET` | `/kitchens/:id` | — | Get kitchen details |
-| `PATCH` | `/kitchens/:id` | 👨‍🍳 Owner | Update kitchen profile |
-| `GET` | `/kitchens/credits` | 👨‍🍳 Owner | View earned credits |
-
-### Menu Items
-
-| Method | Endpoint | Auth | Description |
-| :---: | :--- | :---: | :--- |
-| `POST` | `/menu-items` | 👨‍🍳 Owner | Add new menu item |
-| `GET` | `/menu-items/my-items` | 👨‍🍳 Owner | View own menu items |
-| `GET` | `/menu-items/kitchen/:id` | — | View kitchen's menu |
-| `GET` | `/menu-items/:id` | — | Get item details |
-| `PATCH` | `/menu-items/:id` | 👨‍🍳 Owner | Update menu item |
-| `PATCH` | `/menu-items/:id/availability` | 👨‍🍳 Owner | Toggle availability |
-
-### Orders
-
-| Method | Endpoint | Auth | Description |
-| :---: | :--- | :---: | :--- |
-| `POST` | `/orders` | 🍽️ Client | Place a new order (immediate save; legacy path) |
-| `GET` | `/orders` | 🔑 Any | List orders (role-aware) |
-| `GET` | `/orders/:id` | 🔑 Any | Get order details |
-| `PATCH` | `/orders/:id/accept` | 👨‍🍳 Owner | Accept an order |
-| `PATCH` | `/orders/:id/reject` | 👨‍🍳 Owner | Reject an order |
-
-### Payments (Razorpay)
-
-| Method | Endpoint | Auth | Description |
-| :---: | :--- | :---: | :--- |
-| `POST` | `/payments/initiate` | 🍽️ Client | Validate cart + create Razorpay order (no DB order yet) |
-| `POST` | `/payments/confirm` | 🍽️ Client | Verify payment + save order (`paymentStatus: PAID`) |
-
-### Deliveries
-
-| Method | Endpoint | Auth | Description |
-| :---: | :--- | :---: | :--- |
-| `GET` | `/deliveries/available` | 🚚 Driver | Browse available pickups |
-| `GET` | `/deliveries/my-orders` | 🚚 Driver | View assigned deliveries |
-| `GET` | `/deliveries/credits` | 🚚 Driver | View earned credits |
-| `PATCH` | `/deliveries/:id/accept` | 🚚 Driver | Accept a delivery |
-| `PATCH` | `/deliveries/:id/pick-up` | 🚚 Driver | Mark as picked up |
-| `PATCH` | `/deliveries/:id/out-for-delivery` | 🚚 Driver | Mark as out for delivery |
-| `PATCH` | `/deliveries/:id/finish` | 🚚 Driver | Mark as delivered |
-| `GET` | `/deliveries/:id` | 🚚 Driver | View delivery details |
-
-### Transactions
-
-| Method | Endpoint | Auth | Description |
-| :---: | :--- | :---: | :--- |
-| `GET` | `/transactions/my` | 🔑 Any | View my transactions (paginated) |
-| `GET` | `/transactions/:id` | 🔑 Any | View single transaction |
-| `GET` | `/transactions` | 🛡️ Admin | View all transactions (paginated) |
-
-### Uploads & General
-
-| Method | Endpoint | Auth | Description |
-| :---: | :--- | :---: | :--- |
-| `POST` | `/upload-image` | 🔑 Any | Upload image to S3 |
-| `GET` | `/is_under_maintainance` | — | Maintenance flag (optional `hours` / `time` query) |
-| `POST` | `/is_under_maintainance` | 🛡️ Admin | JSON: `is_under_maintainance`, optional `hours` / `time` |
-| `GET` | `/health` | — | Health check |
-| `GET` | `/uptime` | — | Version & uptime |
-| `GET` | `/` | — | Welcome message |
-
----
-
-## 📂 Documentation
-
-Detailed guides are maintained in the [`docs/`](docs/) directory:
-
-| Doc | Description |
+| Area | Examples |
 | :--- | :--- |
-| 🍎 [**Client Features**](docs/Client.md) | User registration, meal discovery, order placement flows |
-| 👨‍🍳 [**Kitchen Management**](docs/Kitchen.md) | Dashboard: menu creation, order acceptance, earnings |
-| 🚚 [**Delivery Logistics**](docs/delivery.md) | Driver workflows: job discovery → pickup → delivery |
-| 📡 [**API Endpoints**](docs/endpoints.md) | Comprehensive endpoint reference with schema details |
-| 🖥️ [**Frontend Integration**](docs/frontend.md) | Guide for frontend developers consuming the API |
-| 🐳 [**Docker & BullMQ Setup**](docs/bullmq-docker.md) | Infrastructure & background job setup guide |
-| 🐋 [**Docker Deployment**](docs/project-docker.md) | Project containerization guide |
+| **Auth** | Register, login, email verify, OTP/resend, forgot/reset password |
+| **Users** | Profile, admin user list, credit add/deduct, enable/disable account |
+| **Kitchens** | CRUD, public listing, owner credit view |
+| **Menu** | Owner CRUD, public menu by kitchen, availability |
+| **Orders** | Create/list, accept/reject, role-scoped reads |
+| **Payments** | `POST /payments/initiate`, `POST /payments/confirm` (Razorpay) |
+| **Deliveries** | Available jobs, accept, pickup, out for delivery, finish |
+| **Transactions** | Paginated history (user/admin) |
+| **Reviews** | Create (client), list by item/kitchen, “my reviews” |
+| **Upload** | Image upload to S3 |
+| **Ops** | `GET /health`, `GET /uptime`, maintenance flag endpoints |
 
 ---
 
-## 🧪 Testing
+## Documentation
 
-We emphasize code quality with comprehensive test coverage:
+| Document | Purpose |
+| :--- | :--- |
+| [`docs/api-reference.md`](docs/api-reference.md) | Endpoint reference and auth pipeline |
+| [`docs/api.md`](docs/api.md) | Additional API notes (if present) |
+| [`docs/role-client.md`](docs/role-client.md) | Client journeys |
+| [`docs/role-kitchen-owner.md`](docs/role-kitchen-owner.md) | Kitchen owner flows |
+| [`docs/role-delivery-driver.md`](docs/role-delivery-driver.md) | Driver flows |
+| [`docs/frontend-guidelines.md`](docs/frontend-guidelines.md) | Frontend integration |
+| [`docs/setup-bullmq-docker.md`](docs/setup-bullmq-docker.md) | Redis / BullMQ with Docker |
+| [`docs/setup-project-docker.md`](docs/setup-project-docker.md) | Container setup |
+| [`docs/guide-otp-implementation.md`](docs/guide-otp-implementation.md) | OTP behavior and implementation notes |
+| [`docs/legal.md`](docs/legal.md) | Legal / compliance notes |
+
+---
+
+## Testing
 
 ```bash
-# Run unit tests
-npm run test
-
-# Run unit tests in watch mode
+npm run test          # unit
 npm run test:watch
-
-# Run E2E tests
-npm run test:e2e
-
-# Generate coverage report
-npm run test:cov
+npm run test:e2e      # E2E
+npm run test:cov      # coverage
 ```
 
 ---
 
-## 🗄️ Database Entity Relationship
+## Database (entity relationships — simplified)
 
 ```
-┌─────────────┐       ┌──────────────┐       ┌───────────────┐
-│    Users     │       │   Kitchens   │       │  Food Items   │
-├─────────────┤       ├──────────────┤       ├───────────────┤
-│ id (uuid)   │◄──┐   │ id (uuid)    │◄──┐   │ id (uuid)     │
-│ username    │   │   │ name         │   │   │ name          │
-│ name        │   │   │ details      │   │   │ price         │
-│ email       │   │   │ owner_id ────┼───┘   │ kitchen_id ───┼──►
-│ role        │   │   │ is_active    │       │ max_daily     │
-│ credits     │   │   │ image_url    │       │ availability  │
-│ is_verified │   │   └──────────────┘       └───────────────┘
-└─────────────┘   │
-       ▲          │
-       │          │   ┌──────────────┐       ┌───────────────┐
-       │          │   │    Orders     │       │  Order Items  │
-       │          │   ├──────────────┤       ├───────────────┤
-       │          ├───┤ client_id    │       │ order_id ─────┼──►
-       │          │   │ kitchen_id ──┼──►    │ food_item_id  │
-       │          │   │ driver_id ───┼──►    │ quantity      │
-       │          │   │ status       │       │ snapshot_price│
-       │          │   │ total_price  │       └───────────────┘
-       │          │   │ platform_fees│
-       │          │   │ kitchen_fees │
-       │          │   │ delivery_fees│
-       │          │   └──────────────┘
-       │          │
-       │          │   ┌──────────────────┐
-       │          │   │  Transactions    │
-       │          │   ├──────────────────┤
-       │          └───┤ from_user_id     │
-       └──────────────┤ to_user_id       │
-                      │ amount           │
-                      │ type (CR / DB)   │
-                      │ source           │
-                      │ short_id         │
-                      │ description      │
-                      └──────────────────┘
+Users ─────┬───── Kitchens ───── Food items
+           │
+           ├──── Orders ───── Order items
+           │       (fees: platform / kitchen / delivery)
+           │
+           └──── Transactions (ledger, short ids, types)
 ```
+
+Full column-level detail is in TypeORM entities under `src/**/entities/`.
 
 ---
 
-## 📜 Available Scripts
+## Scripts
 
-| Script | Command | Description |
-| :--- | :--- | :--- |
-| **Dev Server** | `npm run start:dev` | Start with hot-reload (watch mode) |
-| **Debug** | `npm run start:debug` | Start with debugger attached |
-| **Production** | `npm run start:prod` | Run compiled JS from `dist/` |
-| **Build** | `npm run build` | Compile TypeScript to JavaScript |
-| **Lint** | `npm run lint` | ESLint with auto-fix |
-| **Format** | `npm run format` | Prettier formatting |
-| **Unit Tests** | `npm run test` | Run Jest unit tests |
-| **E2E Tests** | `npm run test:e2e` | Run end-to-end tests |
-| **Coverage** | `npm run test:cov` | Generate test coverage report |
-| **Reset DB** | `npx ts-node scripts/reset-db.ts` | Reset database (⚠️ destructive) |
+| Script | Command |
+| :--- | :--- |
+| Dev (watch) | `npm run start:dev` |
+| Debug | `npm run start:debug` |
+| Production | `npm run start:prod` |
+| Build | `npm run build` |
+| Lint | `npm run lint` |
+| Format | `npm run format` |
 
 ---
 
-## 📁 Project Structure
+## Project structure
 
 ```
 backend/
 ├── src/
-│   ├── auth/                  # Authentication (JWT, Guards, Roles)
-│   │   ├── dto/               #   Login, Register DTOs
-│   │   ├── jwt.strategy.ts    #   Passport JWT strategy
-│   │   ├── jwt-auth.guard.ts  #   JWT authentication guard
-│   │   ├── roles.guard.ts     #   RBAC enforcement guard
-│   │   └── roles.decorator.ts #   @Roles() decorator
-│   ├── users/                 # User management & admin tools
-│   ├── kitchens/              # Kitchen CRUD & operating hours
-│   ├── food-items/            # Menu items & availability logic
-│   ├── orders/                # Order placement & state machine
-│   │   └── entities/          #   Order + OrderItem entities
-│   ├── deliveries/            # Driver dispatch & delivery flow
-│   ├── transactions/          # Credit ledger & audit trail
-│   ├── upload/                # S3 image upload service
-│   ├── queue/                 # BullMQ queue registration
-│   ├── jobs/                  # Background job processors
-│   ├── redis/                 # Redis connection module
-│   ├── common/                # Shared utilities
-│   │   ├── filters/           #   Global exception filter
-│   │   ├── dto/               #   Shared DTOs
-│   │   ├── s3/                #   S3 client service
-│   │   └── utils/             #   Response mapper, helpers
-│   ├── app.module.ts          # Root module
-│   └── main.ts                # Bootstrap & global pipes
-├── docs/                      # Detailed feature documentation
-├── scripts/                   # DB reset & admin test scripts
-├── test/                      # E2E test suites
-├── docker-compose.yml         # Docker orchestration
-├── Dockerfile                 # Multi-stage production build
-├── .env.example               # Environment variable template
-└── package.json               # Dependencies & scripts
+│   ├── auth/            JWT, guards, roles, DTOs
+│   ├── users/           Users, admin controller, credits
+│   ├── kitchens/
+│   ├── food-items/
+│   ├── orders/          Orders, payments (Razorpay)
+│   ├── deliveries/
+│   ├── transactions/
+│   ├── reviews/
+│   ├── notifications/   Firebase push (when configured)
+│   ├── upload/          S3 uploads
+│   ├── jobs/            BullMQ workers / queue registration
+│   ├── queue/           Email queue processor module (code)
+│   ├── redis/
+│   ├── common/          Filters, shared DTOs, S3, utils
+│   ├── app.module.ts
+│   └── main.ts
+├── docs/
+├── scripts/
+├── test/
+├── docker-compose.yml
+├── Dockerfile
+└── package.json
 ```
 
 ---
 
-## 👥 Contributors
+## Maintainer
 
-Built with ❤️ by **[Ur-Code-Buddy](https://github.com/Ur-Code-Buddy)**.
+Developed by **[Ur-Code-Buddy](https://github.com/Ur-Code-Buddy)**.
 
----
-
-<p align="center">
-  <sub>For detailed architecture walkthroughs, check the <a href="docs/"><code>docs/</code></a> folder.</sub>
-</p>
+For deep dives, start with [`docs/api-reference.md`](docs/api-reference.md) and the module map above.

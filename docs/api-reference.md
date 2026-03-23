@@ -600,7 +600,7 @@ Sets the availability of a specific item.
 
 Places a new order **immediately** (saved to the database on success). Does not go through Razorpay.
 
-For **advance payment** before persisting the order, use `**POST /payments/initiate`** then `**POST /payments/confirm**` (see [Payments (`/payments`)](#payments-payments) below).
+For **advance payment** before persisting the order, use `**POST /payments/initiate`** then `**POST /payments/confirm`** (see [Payments (`/payments`)](#payments-payments) below).
 
 **Request Body:**
 
@@ -624,11 +624,11 @@ For **advance payment** before persisting the order, use `**POST /payments/initi
 **Order payment fields (on saved orders):**
 
 
-| Field               | Type          | Description                                                               |
-| ------------------- | ------------- | ------------------------------------------------------------------------- |
-| `paymentStatus`     | enum          | `PENDING` (e.g. legacy `POST /orders`) or `PAID` (Razorpay confirm path). |
-| `razorpayOrderId`   | string | null | Set when order was created via `/payments/confirm`.                       |
-| `razorpayPaymentId` | string | null | Set when order was created via `/payments/confirm`.                       |
+| Field               | Type   | Description                                                               |
+| ------------------- | ------ | ------------------------------------------------------------------------- |
+| `paymentStatus`     | enum   | `PENDING` (e.g. legacy `POST /orders`) or `PAID` (Razorpay confirm path). |
+| `razorpayOrderId`   | string | null                                                                      |
+| `razorpayPaymentId` | string | null                                                                      |
 
 
 ### Get All Orders
@@ -840,13 +840,13 @@ Public. Returns whether the app should treat the platform as under maintenance (
 **Query parameters (optional):**
 
 
-| Field   | Type   | Required | Description                                                                                                                                 |
-| ------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Field   | Type   | Required | Description                                                                                                                                                                                                                                                                 |
+| ------- | ------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `hours` | number | No       | If **greater than 0**, the response is `true` only when maintenance is on **and** a scheduled end exists with **at least** that many hours remaining. If maintenance is on with a very long / indefinite end (POST with no duration), the flag stays `true` for this check. |
-| `time`  | number | No       | Same meaning as `hours` (use one or the other; `hours` wins if both are sent).                                                            |
+| `time`  | number | No       | Same meaning as `hours` (use one or the other; `hours` wins if both are sent).                                                                                                                                                                                              |
 
 
-**Default when Redis has no key:** `is_under_maintainance` is **`false`** (normal operation) until an admin turns maintenance on via **POST**.
+**Default when Redis has no key:** `is_under_maintainance` is `**false`** (normal operation) until an admin turns maintenance on via **POST**.
 
 **Response (example when off):**
 
@@ -881,11 +881,11 @@ Sets maintenance mode in Redis.
 **Request body:**
 
 
-| Field                   | Type    | Required | Description                                                                                                                                 |
-| ----------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `is_under_maintainance` | boolean | **Yes**  | `false` → maintenance **off**. `true` → maintenance **on** (see optional duration below).                                                    |
-| `hours`                 | number  | No       | When `is_under_maintainance` is `true`: if **> 0**, maintenance lasts that many hours from now. Omit or **`0`** → on until a far-future end (effectively indefinite). Ignored when `false`. |
-| `time`                  | number  | No       | Same as `hours`; **`hours` wins** if both are sent.                                                                                          |
+| Field                   | Type    | Required | Description                                                                                                                                                                                 |
+| ----------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `is_under_maintainance` | boolean | **Yes**  | `false` → maintenance **off**. `true` → maintenance **on** (see optional duration below).                                                                                                   |
+| `hours`                 | number  | No       | When `is_under_maintainance` is `true`: if **> 0**, maintenance lasts that many hours from now. Omit or `**0`** → on until a far-future end (effectively indefinite). Ignored when `false`. |
+| `time`                  | number  | No       | Same as `hours`; `**hours` wins** if both are sent.                                                                                                                                         |
 
 
 **Examples**
