@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import { AllowedPincode } from './common/entities/allowed-pincode.entity';
 import { RedisService } from './redis/redis.service';
 
-/** Redis value: missing = treat as under maintenance; "0" = off; else unix ms until maintenance ends */
+/** Redis value: missing = not under maintenance; "0" = off; else unix ms until maintenance ends */
 const MAINTENANCE_UNTIL_KEY = 'nutri:maintenance_until';
 
 @Injectable()
@@ -71,8 +71,8 @@ export class AppService implements OnModuleInit {
   }
 
   /**
-   * No Redis key → under maintenance (true). Optional `hours` / `time` (> 0): true only if maintenance
-   * stays on for at least that many more hours (ignored when there is no end time — stays true).
+   * No Redis key → not under maintenance. Optional `hours` / `time` (> 0): true only if maintenance
+   * is on and a scheduled end exists with at least that many hours remaining.
    */
   async getIsUnderMaintenance(hoursFilter?: string): Promise<{
     is_under_maintainance: boolean;
@@ -96,17 +96,22 @@ export class AppService implements OnModuleInit {
   }
 
   /**
-   * POST: `hours` / `time` omitted → maintenance on with no scheduled end. `0` → off. Positive → on for N hours.
+   * POST body: `is_under_maintainance` required. When false → off. When true → optional positive `hours`/`time`
+   * (hours wins) for a fixed window; omit or `0` → on until a far-future end (effectively indefinite).
    */
-  async setIsUnderMaintenance(hoursOrTime?: string): Promise<{
+  async setIsUnderMaintenance(input: {
+    is_under_maintainance: boolean;
+    hours?: number;
+    time?: number;
+  }): Promise<{
     is_under_maintainance: boolean;
     maintenance_ends_at: string | null;
   }> {
-    const h = this.parseHoursQuery(hoursOrTime);
-    if (h === 0) {
+    if (!input.is_under_maintainance) {
       await this.redisService.client.set(MAINTENANCE_UNTIL_KEY, '0');
       return { is_under_maintainance: false, maintenance_ends_at: null };
     }
+    const h = this.resolveBodyHours(input.hours, input.time);
     if (h != null && h > 0) {
       const until = Date.now() + h * 3600000;
       await this.redisService.client.set(MAINTENANCE_UNTIL_KEY, String(until));
@@ -123,6 +128,15 @@ export class AppService implements OnModuleInit {
     };
   }
 
+  private resolveBodyHours(
+    hours?: number,
+    time?: number,
+  ): number | null {
+    const raw = hours ?? time;
+    if (raw === undefined || raw === null || Number.isNaN(raw)) return null;
+    return raw;
+  }
+
   private parseMaintenanceEndsAt(raw: string | null): string | null {
     if (raw == null || raw === '0') return null;
     const until = parseInt(raw, 10);
@@ -131,10 +145,10 @@ export class AppService implements OnModuleInit {
   }
 
   private computeUnderMaintenance(raw: string | null): boolean {
-    if (raw == null) return true;
+    if (raw == null) return false;
     if (raw === '0') return false;
     const until = parseInt(raw, 10);
-    if (Number.isNaN(until)) return true;
+    if (Number.isNaN(until)) return false;
     return Date.now() < until;
   }
 

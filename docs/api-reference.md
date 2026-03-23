@@ -842,13 +842,22 @@ Public. Returns whether the app should treat the platform as under maintenance (
 
 | Field   | Type   | Required | Description                                                                                                                                 |
 | ------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `hours` | number | No       | If **greater than 0**, the response is `true` only when maintenance is on **and** a scheduled end exists with **at least** that many hours remaining. If there is no end time (indefinite on), the flag stays `true`. |
+| `hours` | number | No       | If **greater than 0**, the response is `true` only when maintenance is on **and** a scheduled end exists with **at least** that many hours remaining. If maintenance is on with a very long / indefinite end (POST with no duration), the flag stays `true` for this check. |
 | `time`  | number | No       | Same meaning as `hours` (use one or the other; `hours` wins if both are sent).                                                            |
 
 
-**Default when Redis has no key:** `is_under_maintainance` is **`true`** until an admin clears or sets state via **POST**.
+**Default when Redis has no key:** `is_under_maintainance` is **`false`** (normal operation) until an admin turns maintenance on via **POST**.
 
-**Response:**
+**Response (example when off):**
+
+```json
+{
+  "is_under_maintainance": false,
+  "maintenance_ends_at": null
+}
+```
+
+**Response (example when on with a scheduled end):**
 
 ```json
 {
@@ -857,7 +866,7 @@ Public. Returns whether the app should treat the platform as under maintenance (
 }
 ```
 
-- `maintenance_ends_at` is `null` when maintenance is off or when there is no fixed end (e.g. default/unset behaviour or indefinite mode).
+- `maintenance_ends_at` is `null` when maintenance is off. When on via **POST** without a specific hour count, the backend still stores a far-future end time, so `maintenance_ends_at` may be a distant ISO timestamp.
 
 ---
 
@@ -867,14 +876,37 @@ Public. Returns whether the app should treat the platform as under maintenance (
 
 Sets maintenance mode in Redis.
 
-**Query parameters:**
+**Content-Type:** `application/json`
+
+**Request body:**
 
 
-| Field   | Type   | Required | Description                                                                                              |
-| ------- | ------ | -------- | -------------------------------------------------------------------------------------------------------- |
-| `hours` | number | No       | Omit → turn maintenance **on** with a long default end. **`0`** → maintenance **off**. **Positive** → on for that many hours from now. |
-| `time`  | number | No       | Same as `hours` (`hours` wins if both are sent).                                                         |
+| Field                   | Type    | Required | Description                                                                                                                                 |
+| ----------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `is_under_maintainance` | boolean | **Yes**  | `false` → maintenance **off**. `true` → maintenance **on** (see optional duration below).                                                    |
+| `hours`                 | number  | No       | When `is_under_maintainance` is `true`: if **> 0**, maintenance lasts that many hours from now. Omit or **`0`** → on until a far-future end (effectively indefinite). Ignored when `false`. |
+| `time`                  | number  | No       | Same as `hours`; **`hours` wins** if both are sent.                                                                                          |
 
+
+**Examples**
+
+Turn maintenance off:
+
+```json
+{ "is_under_maintainance": false }
+```
+
+Turn maintenance on for 3 hours:
+
+```json
+{ "is_under_maintainance": true, "hours": 3 }
+```
+
+Turn maintenance on with no fixed duration (stored as a long default end time):
+
+```json
+{ "is_under_maintainance": true }
+```
 
 **Response:** Same shape as **GET** (`is_under_maintainance`, `maintenance_ends_at`) reflecting the state after the update.
 

@@ -24,6 +24,7 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { Roles } from './auth/roles.decorator';
 import { UserRole } from './users/user.role.enum';
+import { SetMaintenanceDto } from './common/dto/set-maintenance.dto';
 
 @Controller()
 export class AppController {
@@ -120,11 +121,8 @@ export class AppController {
   @Post('is_under_maintainance')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  setIsUnderMaintenance(
-    @Query('hours') hours?: string,
-    @Query('time') time?: string,
-  ) {
-    return this.appService.setIsUnderMaintenance(hours ?? time);
+  setIsUnderMaintenance(@Body() body: SetMaintenanceDto) {
+    return this.appService.setIsUnderMaintenance(body);
   }
 
   @Post('resetdb')
