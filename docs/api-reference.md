@@ -538,7 +538,9 @@ Sets the availability of a specific item.
 **POST** `/orders`
 **Role Required:** `CLIENT`
 
-Places a new order.
+Places a new order **immediately** (saved to the database on success). Does not go through Razorpay.
+
+For **advance payment** before persisting the order, use **`POST /payments/initiate`** then **`POST /payments/confirm`** (see [Payments (`/payments`)](#payments-payments) below).
 
 **Request Body:**
 | Field | Type | Required | Description |
@@ -552,6 +554,14 @@ Places a new order.
 | :--- | :--- | :--- | :--- |
 | `food_item_id` | string | **Yes** | ID of the menu item. |
 | `quantity` | number | **Yes** | Quantity to order (min 1). |
+
+**Order payment fields (on saved orders):**
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `paymentStatus` | enum | `PENDING` (e.g. legacy `POST /orders`) or `PAID` (Razorpay confirm path). |
+| `razorpayOrderId` | string \| null | Set when order was created via `/payments/confirm`. |
+| `razorpayPaymentId` | string \| null | Set when order was created via `/payments/confirm`. |
 
 ### Get All Orders
 
@@ -618,6 +628,48 @@ Marks an order as `READY` for pickup.
 **Role Required:** `KITCHEN_OWNER`
 
 Marks an order as `REJECTED`.
+
+---
+
+## Payments (`/payments`)
+
+Razorpay **advance payment** flow: validates the cart like order creation, creates a Razorpay order, then **persists the `Order` only after** signature verification and a successful `captured` payment fetch from Razorpay.
+
+**Environment:** `RAZORPAY_API_KEY`, `RAZORPAY_KEY_SECRET` (server-side only for secret).
+
+### Initiate payment (create Razorpay order)
+
+**POST** `/payments/initiate`
+**Role Required:** `CLIENT`
+
+Runs the same validations as **Create Order** (schedule window, item availability, sold-out checks, fees) but **does not** insert an `Order` row.
+
+**Request Body:** Same as **Create Order** (`kitchen_id`, `scheduled_for`, `items[]`).
+
+**Response:**
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `razorpayOrderId` | string | Razorpay order id (`order_...`) for Checkout. |
+| `publicKey` | string | Key id from `RAZORPAY_API_KEY` (safe for client). |
+
+### Confirm payment (save order)
+
+**POST** `/payments/confirm`
+**Role Required:** `CLIENT`
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `razorpayOrderId` | string | **Yes** | Must match the order id from initiate. |
+| `razorpayPaymentId` | string | **Yes** | Razorpay payment id after successful pay. |
+| `razorpaySignature` | string | **Yes** | HMAC SHA256 of `razorpayOrderId|razorpayPaymentId` using `RAZORPAY_KEY_SECRET`. |
+| `originalDto` | object | **Yes** | Same body as **Create Order** (must match what was used for initiate). |
+
+**Response:** Created `Order` entity (same as **Create Order**), with `paymentStatus: PAID` and Razorpay ids set.
+
+**Errors:** `400 Bad Request` if signature invalid, payment not `captured`, payment/order mismatch, amount mismatch vs server quote, or order validation fails.
 
 ---
 

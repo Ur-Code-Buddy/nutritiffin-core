@@ -352,11 +352,18 @@ Below is a summary of all available endpoints. For full request/response schemas
 
 | Method | Endpoint | Auth | Description |
 | :---: | :--- | :---: | :--- |
-| `POST` | `/orders` | 🍽️ Client | Place a new order |
+| `POST` | `/orders` | 🍽️ Client | Place a new order (immediate save; legacy path) |
 | `GET` | `/orders` | 🔑 Any | List orders (role-aware) |
 | `GET` | `/orders/:id` | 🔑 Any | Get order details |
 | `PATCH` | `/orders/:id/accept` | 👨‍🍳 Owner | Accept an order |
 | `PATCH` | `/orders/:id/reject` | 👨‍🍳 Owner | Reject an order |
+
+### Payments (Razorpay)
+
+| Method | Endpoint | Auth | Description |
+| :---: | :--- | :---: | :--- |
+| `POST` | `/payments/initiate` | 🍽️ Client | Validate cart + create Razorpay order (no DB order yet) |
+| `POST` | `/payments/confirm` | 🍽️ Client | Verify payment + save order (`paymentStatus: PAID`) |
 
 ### Deliveries
 

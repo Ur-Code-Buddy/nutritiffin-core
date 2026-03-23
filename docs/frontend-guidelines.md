@@ -74,9 +74,20 @@ Step-by-Step Implementation:
 
 ---
 
-- Create Order: POST /orders
-  - Requires `kitchen_id`, `scheduled_for` date, and list of `items`.
-- Track Status: GET /orders (shows status: PENDING, ACCEPTED, REJECTED).
+**Recommended (Razorpay advance payment — order saved only after successful pay):**
+
+1. `POST /payments/initiate` — Same JSON as create order: `kitchen_id`, `scheduled_for` (`YYYY-MM-DD`, 1–3 days ahead), `items[]` (`food_item_id`, `quantity`). Returns `razorpayOrderId` + `publicKey` (use with Razorpay Checkout).
+2. After the user pays, call `POST /payments/confirm` with `razorpayOrderId`, `razorpayPaymentId`, `razorpaySignature`, and `originalDto` (must match step 1). Response is the created order (`paymentStatus: PAID`).
+
+**Legacy (immediate create, no Razorpay):**
+
+- `POST /orders` — Same body; order is persisted immediately (`paymentStatus` typically `PENDING`, no Razorpay ids).
+
+**Tracking:**
+
+- `GET /orders` — list; `GET /orders/:id` — detail (status: PENDING, ACCEPTED, READY, etc.).
+
+See also `docs/api.md` and `docs/api-reference.md` § Payments.
 
 ## Notes
 

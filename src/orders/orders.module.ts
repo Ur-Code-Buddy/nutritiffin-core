@@ -5,6 +5,8 @@ import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
+import { PaymentsController } from './payments.controller';
+import { PaymentsService } from './payments.service';
 import { FoodItemsModule } from '../food-items/food-items.module';
 import { KitchensModule } from '../kitchens/kitchens.module';
 import { FoodItem } from '../food-items/entities/food-item.entity';
@@ -22,8 +24,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
     UsersModule,
     NotificationsModule,
   ],
-  controllers: [OrdersController],
-  providers: [OrdersService],
+  controllers: [OrdersController, PaymentsController],
+  providers: [OrdersService, PaymentsService],
   exports: [OrdersService],
 })
 export class OrdersModule {}

@@ -1,9 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DataSource } from 'typeorm';
 import { RedisService } from './redis/redis.service';
+import { AllowedPincode } from './common/entities/allowed-pincode.entity';
 
 describe('AppController', () => {
   let appController: AppController;
@@ -24,15 +26,29 @@ describe('AppController', () => {
           },
         },
         {
+          provide: getRepositoryToken(AllowedPincode),
+          useValue: {
+            count: jest.fn().mockResolvedValue(1),
+            findOne: jest.fn(),
+            create: jest.fn(),
+            save: jest.fn(),
+            update: jest.fn(),
+            find: jest.fn(),
+          },
+        },
+        {
           provide: DataSource,
           useValue: {
             transaction: jest.fn(),
+            isInitialized: true,
+            query: jest.fn().mockResolvedValue([]),
           },
         },
         {
           provide: RedisService,
           useValue: {
             getClient: jest.fn(),
+            ping: jest.fn().mockResolvedValue('PONG'),
           },
         },
       ],

@@ -22,6 +22,11 @@ export enum OrderStatus {
   REJECTED = 'REJECTED',
 }
 
+export enum PaymentStatus {
+  PENDING = 'PENDING',
+  PAID = 'PAID',
+}
+
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn('uuid')
@@ -46,6 +51,16 @@ export class Order {
 
   @Column({ type: 'date' })
   scheduled_for: string; // YYYY-MM-DD
+
+  // Razorpay payment metadata (only set when order is created via `/payments/*`)
+  @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
+  paymentStatus: PaymentStatus;
+
+  @Column({ nullable: true })
+  razorpayOrderId: string | null;
+
+  @Column({ nullable: true })
+  razorpayPaymentId: string | null;
 
   @OneToMany(() => OrderItem, (item) => item.order, { cascade: true })
   items: OrderItem[];
