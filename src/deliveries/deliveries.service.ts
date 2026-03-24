@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
+import { Kitchen } from '../kitchens/entities/kitchen.entity';
 import { User } from '../users/entities/user.entity';
 import {
   Transaction,
@@ -222,9 +223,9 @@ export class DeliveriesService {
     }
 
     try {
+      // Lock order row only — relations + pessimistic_write use LEFT JOIN + FOR UPDATE, which Postgres rejects
       const txOrder = await queryRunner.manager.findOne(Order, {
         where: { id },
-        relations: ['kitchen', 'client'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -232,12 +233,20 @@ export class DeliveriesService {
         throw new BadRequestException('Order cannot be delivered now');
       }
 
+      const kitchen = await queryRunner.manager.findOne(Kitchen, {
+        where: { id: txOrder.kitchen_id },
+      });
+
+      const clientForPush = await queryRunner.manager.findOne(User, {
+        where: { id: txOrder.client_id },
+      });
+
       const driver = await queryRunner.manager.findOne(User, {
         where: { id: driverId },
         lock: { mode: 'pessimistic_write' },
       });
 
-      const kitchenOwnerId = txOrder.kitchen?.owner_id;
+      const kitchenOwnerId = kitchen?.owner_id;
       const kitchenOwner = kitchenOwnerId
         ? await queryRunner.manager.findOne(User, {
             where: { id: kitchenOwnerId },
@@ -296,10 +305,10 @@ export class DeliveriesService {
 
       await queryRunner.commitTransaction();
 
-      if (txOrder.client && txOrder.client.fcm_token) {
+      if (clientForPush?.fcm_token) {
         this.notificationsService
           .sendPushNotification(
-            txOrder.client.fcm_token,
+            clientForPush.fcm_token,
             'Order Delivered!',
             'Your order has been delivered successfully. Enjoy your meal!',
             { orderId: txOrder.id },
@@ -307,7 +316,9 @@ export class DeliveriesService {
           .catch((err) => this.logger.error('Push notification failed', err));
       }
 
-      // Return the completed order with updated fields
+      if (clientForPush) {
+        txOrder.client = clientForPush;
+      }
       return txOrder;
     } catch (error) {
       await queryRunner.rollbackTransaction();
