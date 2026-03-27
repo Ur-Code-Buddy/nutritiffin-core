@@ -152,7 +152,19 @@ async function startStressTest() {
             } else if (delivery.status === 'PICKED_UP') {
                 await apiCall(`/deliveries/${delivery.id}/out-for-delivery`, 'PATCH', token);
             } else if (delivery.status === 'OUT_FOR_DELIVERY') {
-                const res = await apiCall(`/deliveries/${delivery.id}/finish`, 'PATCH', token);
+                let otp = null;
+                const shuffled = [...clients].sort(() => Math.random() - 0.5).slice(0, 8);
+                for (const c of shuffled) {
+                    const ct = await loginUser(c);
+                    if (!ct) continue;
+                    const handoff = await apiCall(`/orders/${delivery.id}/delivery-handoff-otp`, 'GET', ct);
+                    if (handoff && handoff.otp) {
+                        otp = handoff.otp;
+                        break;
+                    }
+                }
+                if (!otp) continue;
+                const res = await apiCall(`/deliveries/${delivery.id}/finish`, 'PATCH', token, { otp });
                 if (res) metrics.deliveriesFinished++;
             }
         }

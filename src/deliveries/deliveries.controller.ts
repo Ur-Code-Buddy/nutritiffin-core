@@ -3,6 +3,7 @@ import {
   Get,
   Patch,
   Param,
+  Body,
   UseGuards,
   Request,
   ForbiddenException,
@@ -15,6 +16,7 @@ import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../users/user.role.enum';
 import { OrderStatus } from '../orders/entities/order.entity';
 import { ResponseMapper } from '../common/utils/response.mapper';
+import { FinishDeliveryDto } from './dto/finish-delivery.dto';
 
 @Controller('deliveries')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -59,8 +61,16 @@ export class DeliveriesController {
   }
 
   @Patch(':id/finish')
-  finishDelivery(@Param('id') id: string, @Request() req: any) {
-    return this.deliveriesService.finishDelivery(id, req.user.userId);
+  finishDelivery(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: FinishDeliveryDto,
+  ) {
+    return this.deliveriesService.finishDelivery(
+      id,
+      req.user.userId,
+      body.otp,
+    );
   }
 
   @Get(':id')

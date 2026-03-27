@@ -21,12 +21,14 @@ import { UserRole } from '../users/user.role.enum';
 import { OrderStatus } from './entities/order.entity';
 import { KitchensService } from '../kitchens/kitchens.service';
 import { ResponseMapper } from '../common/utils/response.mapper';
+import { DeliveryHandoffOtpService } from '../deliveries/delivery-handoff-otp.service';
 
 @Controller('orders')
 export class OrdersController {
   constructor(
     private readonly ordersService: OrdersService,
     private readonly kitchenService: KitchensService,
+    private readonly deliveryHandoffOtpService: DeliveryHandoffOtpService,
   ) {}
 
   @Post()
@@ -34,6 +36,26 @@ export class OrdersController {
   @Roles(UserRole.CLIENT)
   create(@Request() req: any, @Body() createOrderDto: CreateOrderDto) {
     return this.ordersService.create(req.user.userId, createOrderDto);
+  }
+
+  @Get(':id/delivery-handoff-otp')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CLIENT)
+  async getDeliveryHandoffOtp(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
+  ) {
+    const order = await this.ordersService.findOne(id);
+    if (!order) throw new BadRequestException('Order not found');
+    if (order.client_id !== req.user.userId) {
+      throw new ForbiddenException('You can only view handoff codes for your own orders');
+    }
+    if (order.status !== OrderStatus.OUT_FOR_DELIVERY) {
+      throw new BadRequestException(
+        'Handoff code is available only while the order is out for delivery',
+      );
+    }
+    return this.deliveryHandoffOtpService.getOrCreateForOrder(order.id);
   }
 
   @Get()

@@ -298,7 +298,17 @@ async function main() {
             console.log(`   ✅ Picked up`);
             await axios.patch(`${BASE_URL}/deliveries/${deliveryJob.id}/out-for-delivery`, {}, driverHeaders[d]);
             console.log(`   ✅ Out for delivery`);
-            await axios.patch(`${BASE_URL}/deliveries/${deliveryJob.id}/finish`, {}, driverHeaders[d]);
+            const orderMeta = allOrders.find((o) => o.id === deliveryJob.id);
+            if (!orderMeta) throw new Error(`No client mapping for order ${deliveryJob.id}`);
+            const handoffRes = await axios.get(
+              `${BASE_URL}/orders/${deliveryJob.id}/delivery-handoff-otp`,
+              clientHeaders[orderMeta.clientIndex],
+            );
+            await axios.patch(
+              `${BASE_URL}/deliveries/${deliveryJob.id}/finish`,
+              { otp: handoffRes.data.otp },
+              driverHeaders[d],
+            );
             console.log(`   ✅ Finished`);
         }
     }

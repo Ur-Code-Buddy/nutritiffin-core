@@ -12,6 +12,7 @@ import { KitchensModule } from '../kitchens/kitchens.module';
 import { FoodItem } from '../food-items/entities/food-item.entity';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { DeliveriesModule } from '../deliveries/deliveries.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     KitchensModule,
     UsersModule,
     NotificationsModule,
+    DeliveriesModule,
   ],
   controllers: [OrdersController, PaymentsController],
   providers: [OrdersService, PaymentsService],

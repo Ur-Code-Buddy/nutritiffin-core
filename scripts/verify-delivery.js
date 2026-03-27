@@ -200,11 +200,22 @@ async function main() {
     );
     console.log('Driver Marked Order Out for Delivery');
 
+    // Client reads in-app handoff code (shown to driver at door)
+    console.log('Client fetching delivery handoff OTP...');
+    const handoffRes = await axios.get(
+      `${BASE_URL}/orders/${orderId}/delivery-handoff-otp`,
+      { headers: { Authorization: `Bearer ${clientToken}` } }
+    );
+    const handoffOtp = handoffRes.data.otp;
+    if (!handoffOtp || String(handoffOtp).length !== 4) {
+      throw new Error('Invalid handoff OTP from API');
+    }
+
     // Finish Delivery
-    console.log('Finishing Delivery...');
+    console.log('Finishing Delivery (with handoff OTP)...');
     await axios.patch(
       `${BASE_URL}/deliveries/${orderId}/finish`,
-      {},
+      { otp: handoffOtp },
       { headers: { Authorization: `Bearer ${driverToken}` } }
     );
     console.log('Driver Finished Delivery');

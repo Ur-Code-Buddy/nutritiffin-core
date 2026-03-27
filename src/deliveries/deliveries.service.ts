@@ -15,6 +15,7 @@ import {
   TransactionSource,
 } from '../transactions/entities/transaction.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { DeliveryHandoffOtpService } from './delivery-handoff-otp.service';
 
 @Injectable()
 export class DeliveriesService {
@@ -26,6 +27,7 @@ export class DeliveriesService {
     @InjectRepository(User)
     private usersRepository: Repository<User>,
     private notificationsService: NotificationsService,
+    private deliveryHandoffOtpService: DeliveryHandoffOtpService,
   ) {}
 
   async findAllAvailable() {
@@ -179,6 +181,8 @@ export class DeliveriesService {
       );
     }
 
+    await this.deliveryHandoffOtpService.issueForOrder(id);
+
     order.status = OrderStatus.OUT_FOR_DELIVERY;
 
     const savedOrder = await this.ordersRepository.save(order);
@@ -197,7 +201,7 @@ export class DeliveriesService {
     return savedOrder;
   }
 
-  async finishDelivery(id: string, driverId: string) {
+  async finishDelivery(id: string, driverId: string, handoffOtp: string) {
     const order = await this.findOne(id);
 
     if (order.delivery_driver_id !== driverId) {
@@ -207,6 +211,8 @@ export class DeliveriesService {
     if (order.status !== OrderStatus.OUT_FOR_DELIVERY) {
       throw new BadRequestException('Order is not out for delivery');
     }
+
+    await this.deliveryHandoffOtpService.verifyAndConsume(id, handoffOtp);
 
     const queryRunner =
       this.ordersRepository.manager.connection.createQueryRunner();

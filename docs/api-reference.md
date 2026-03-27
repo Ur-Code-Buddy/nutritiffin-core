@@ -689,6 +689,36 @@ Retrieves details of a specific order.
 
 When a **paid** order is **rejected** (kitchen reject or auto timeout), the backend creates a **full Razorpay refund**, sets `refund_status` to `PENDING`, and fills `refund_expected_by` (7 business days after initiation, UTC). The client receives a push notification with refund messaging. Unpaid (legacy) orders get `refund_status` `NOT_APPLICABLE`.
 
+### Get delivery handoff OTP (in-app)
+
+**GET** `/orders/:id/delivery-handoff-otp`
+**Role Required:** `CLIENT`
+
+Returns the **4-digit** handoff code the customer shows the delivery partner at the door. Only available while the order status is **`OUT_FOR_DELIVERY`** and only for the **order owner**.
+
+**Response:**
+
+
+| Field                   | Type   | Description                                                                 |
+| ----------------------- | ------ | --------------------------------------------------------------------------- |
+| `otp`                   | string | Four digits, zero-padded (e.g. `0427`).                                     |
+| `expires_in_seconds`    | number | Remaining lifetime of the current code (Redis TTL), capped for display use. |
+
+```json
+{
+  "otp": "0427",
+  "expires_in_seconds": 13842
+}
+```
+
+**Behaviour notes:**
+
+- When the driver calls **`PATCH /deliveries/:id/out-for-delivery`**, the server issues a new code (or replaces any previous one) and stores it in **Redis** with a **4-hour** TTL.
+- The same code is returned on repeat calls until it expires or the delivery is completed successfully.
+- If Redis had no code but the order is still `OUT_FOR_DELIVERY` (e.g. rare cache loss), the server creates a new code.
+
+**Errors:** `400` if the order is not `OUT_FOR_DELIVERY`; `403` if the client does not own the order.
+
 ### Accept Order
 
 **PATCH** `/orders/:id/accept`
@@ -1007,6 +1037,8 @@ Aggregated counts for marketing or landing pages. **Not real-time:** values are 
 
 ## Deliveries (`/deliveries`)
 
+Delivery completion uses an **in-app handoff code**: the **client** reads **`GET /orders/:id/delivery-handoff-otp`** (4 digits) and tells the driver; the driver submits that code in **`PATCH /deliveries/:id/finish`**. Codes live in **Redis** (see **Get delivery handoff OTP** under [Orders](#orders-orders)).
+
 ### Get Driver Credits
 
 **GET** `/deliveries/credits`
@@ -1049,12 +1081,34 @@ Updates status to `PICKED_UP`.
 
 Updates status to `OUT_FOR_DELIVERY`.
 
+**Side effect:** Issues a new **4-digit** handoff code in Redis for this order (4-hour TTL) so the customer can retrieve it via **`GET /orders/:id/delivery-handoff-otp`**. If Redis cannot store the code, the request fails and the status is not updated.
+
 ### Finish Delivery
 
 **PATCH** `/deliveries/:id/finish`
 **Role Required:** `DELIVERY_DRIVER`
 
-Updates status to `DELIVERED`.
+Completes delivery only after the **correct handoff code** from the customer’s app. Updates status to `DELIVERED`, records payouts/transactions as before, and **consumes** the code (single use).
+
+**Request body (JSON):**
+
+
+| Field | Type   | Required | Description                                      |
+| ----- | ------ | -------- | ------------------------------------------------ |
+| `otp` | string | **Yes**  | **4-digit** code from **`GET /orders/:id/delivery-handoff-otp`**. |
+
+```json
+{
+  "otp": "0427"
+}
+```
+
+**Errors:**
+
+- `400` — wrong or missing code, expired/missing code, invalid format (must be exactly 4 digits).
+- `429` — too many incorrect attempts for this order; customer should confirm the code shown in the app.
+
+On success, the customer receives the usual **Order Delivered** push notification.
 
 ### Get Order Details
 

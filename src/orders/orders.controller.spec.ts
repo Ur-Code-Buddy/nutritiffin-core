@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { KitchensService } from '../kitchens/kitchens.service';
+import { DeliveryHandoffOtpService } from '../deliveries/delivery-handoff-otp.service';
 
 describe('OrdersController', () => {
   let controller: OrdersController;
@@ -25,6 +26,12 @@ describe('OrdersController', () => {
           provide: KitchensService,
           useValue: {
             findOne: jest.fn(),
+          },
+        },
+        {
+          provide: DeliveryHandoffOtpService,
+          useValue: {
+            getOrCreateForOrder: jest.fn(),
           },
         },
       ],

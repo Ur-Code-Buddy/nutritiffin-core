@@ -518,6 +518,26 @@ Example:
 
 ---
 
+### 4.4 Get delivery handoff OTP (show driver at door)
+
+**`GET /orders/:id/delivery-handoff-otp`**
+
+**Role:** `CLIENT` only.
+
+Returns a **4-digit** code while the order is **`OUT_FOR_DELIVERY`**. The customer shows this to the delivery partner; the partner enters it in **`PATCH /deliveries/:id/finish`**.
+
+**Success Response:**
+```json
+{
+  "otp": "0427",
+  "expires_in_seconds": 13842
+}
+```
+
+**Errors:** `400` if status is not `OUT_FOR_DELIVERY`; `403` if the order belongs to another user.
+
+---
+
 ## 5. REVIEWS
 
 Clients can review a food item from an order that has been delivered within the last 24 hours. A user can only write one review per `order_item` (so they review each specific order instance of a food item). 

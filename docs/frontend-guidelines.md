@@ -105,7 +105,8 @@ See also `docs/api.md` and `docs/api-reference.md` § Payments.
   3. Driver clicks "Accept" -> PATCH /deliveries/:id/accept.
   4. Order moves to "Current Deliveries" (GET /deliveries/my-orders).
   5. Show details: Address (Client/Kitchen), Phone numbers, Total Price.
-  6. Driver finishes -> PATCH /deliveries/:id/finish.
+  6. After **out for delivery**, the **client** must call **`GET /orders/:id/delivery-handoff-otp`** and show the **4-digit** code to the driver.
+  7. Driver finishes -> **`PATCH /deliveries/:id/finish`** with JSON body `{ "otp": "<4 digits>" }`.
 
 7. Transaction History (All Roles)
 

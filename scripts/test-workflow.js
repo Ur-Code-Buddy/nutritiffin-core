@@ -91,7 +91,12 @@ async function main() {
         console.log('Driver Picked Up Delivery');
         await axios.patch(`${BASE_URL}/deliveries/${orderId}/out-for-delivery`, {}, { headers: { Authorization: `Bearer ${dToken}` } });
         console.log('Driver Out for Delivery');
-        await axios.patch(`${BASE_URL}/deliveries/${orderId}/finish`, {}, { headers: { Authorization: `Bearer ${dToken}` } });
+        const handoff = await axios.get(`${BASE_URL}/orders/${orderId}/delivery-handoff-otp`, { headers: { Authorization: `Bearer ${cToken}` } });
+        await axios.patch(
+            `${BASE_URL}/deliveries/${orderId}/finish`,
+            { otp: handoff.data.otp },
+            { headers: { Authorization: `Bearer ${dToken}` } }
+        );
         console.log('Driver Finished Delivery');
 
         // Review
