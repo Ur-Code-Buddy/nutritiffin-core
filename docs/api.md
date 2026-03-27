@@ -1,10 +1,10 @@
 # API Endpoints
 
-Concise reference for **Razorpay advance payment** order placement. For the full API surface, see [`api-reference.md`](./api-reference.md).
+Concise reference for **Razorpay advance payment** order placement. For the full API surface, see [`api-reference.md`](./api-reference.md). For **live delivery maps** (tracking endpoints, polling, credentials, polylines), see **[`Maps.md`](./Maps.md)**.
 
 **Base URL (local):** `http://localhost:3000`
 
-**Server env (never expose to clients):** `RAZORPAY_KEY_SECRET` — used only for HMAC verification on `POST /payments/confirm`.
+**Server env (never expose to clients):** `RAZORPAY_KEY_SECRET` — used only for HMAC verification on `POST /payments/confirm`. **`GOOGLE_MAPS_API_KEY`** — server-only; used for live delivery routes/ETAs (`GET /orders/:id/tracking`); see [`Maps.md`](./Maps.md) and [`api-reference.md`](./api-reference.md).
 
 **Client env:** `RAZORPAY_API_KEY` is returned as `publicKey` from `POST /payments/initiate` for Razorpay Checkout / Standard integration.
 

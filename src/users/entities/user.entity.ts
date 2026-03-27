@@ -33,6 +33,13 @@ export class User {
   @Column()
   pincode: string;
 
+  /** WGS84 — client delivery pin for maps / routing (set via profile update). */
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  latitude: string | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  longitude: string | null;
+
   @Column({ type: 'varchar', length: 2048, nullable: true })
   profile_picture_url: string | null;
 

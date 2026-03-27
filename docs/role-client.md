@@ -547,6 +547,20 @@ Returns a **4-digit** code while the order is **`OUT_FOR_DELIVERY`**. The custom
 
 ---
 
+### 4.5 Live map tracking (driver on map, ETA, route)
+
+**`GET /orders/:id/tracking`**
+
+**Role:** `CLIENT` only, and only while the order is **`PICKED_UP`** or **`OUT_FOR_DELIVERY`**.
+
+Returns the driver’s last reported position, destination coordinates, and (when available) a Google **encoded polyline**, **distance**, **duration**, and **ETA**. Poll every **5–10 seconds** while the tracking screen is open.
+
+Full integration notes (maps SDK keys, decoding polylines, `route_error`, profile coordinates): **[`Maps.md`](./Maps.md)** and [`api-reference.md`](./api-reference.md) § Orders → **Get order tracking**.
+
+**Tip:** Set delivery **`latitude` / `longitude`** on **`PATCH /users/me`** so routing is reliable; see **Update Profile** in [`api-reference.md`](./api-reference.md).
+
+---
+
 ## 5. REVIEWS
 
 Clients can review a food item from an order that has been delivered within the last 24 hours. A user can only write one review per `order_item` (so they review each specific order instance of a food item). 

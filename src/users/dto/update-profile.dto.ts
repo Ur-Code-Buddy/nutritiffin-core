@@ -5,6 +5,9 @@ import {
   IsUrl,
   MaxLength,
   ValidateIf,
+  IsNumber,
+  Min,
+  Max,
 } from 'class-validator';
 
 export class UpdateProfileDto {
@@ -26,6 +29,21 @@ export class UpdateProfileDto {
   @IsString()
   @IsNotEmpty()
   pincode?: string;
+
+  /** Delivery coordinates for live tracking / routing (WGS84). Omit to leave unchanged; send `null` to clear. */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number | null;
 
   /** Full URL (e.g. S3) to the user’s profile image. Send `null` to remove. */
   @IsOptional()

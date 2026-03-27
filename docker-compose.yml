@@ -37,6 +37,7 @@ services:
       # Razorpay (server-side: secret never exposed to clients; key id returned as publicKey from /payments/initiate)
       - RAZORPAY_API_KEY=${RAZORPAY_API_KEY}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
     depends_on:
       - redis
     networks:

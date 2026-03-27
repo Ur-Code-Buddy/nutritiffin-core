@@ -23,6 +23,16 @@ As a Delivery Partner, the standard lifecycle on an order flows like this:
 
 ---
 
+## Live GPS and map tracking
+
+While an order is **`READY`**, **`PICKED_UP`**, or **`OUT_FOR_DELIVERY`**, the driver app should send GPS fixes to the API:
+
+- **`PATCH /deliveries/:id/location`** — body: `{ "lat", "lng", optional "heading" }`. Throttled to **30 requests/minute**; send about every **2–5 s** when moving.
+
+The same driver can read a routing snapshot (and the customer reads a similar snapshot) via **`GET /orders/:id/tracking`** when assigned and in an allowed status — see **[`Maps.md`](./Maps.md)** for phases (`TO_PICKUP` vs `TO_DROPOFF`), response fields, and how to open external navigation to the kitchen or customer.
+
+---
+
 ## Endpoints
 
 ### 1. Get Driver Credits

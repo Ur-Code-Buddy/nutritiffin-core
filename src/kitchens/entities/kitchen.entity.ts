@@ -56,6 +56,13 @@ export class Kitchen {
   @Column({ nullable: true })
   image_url: string;
 
+  /** WGS84 — pickup location for driver routing (set via kitchen create/update). */
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  latitude: string | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  longitude: string | null;
+
   @OneToMany(() => FoodItem, (item) => item.kitchen)
   food_items: FoodItem[];
 

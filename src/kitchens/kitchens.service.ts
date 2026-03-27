@@ -23,7 +23,12 @@ export class KitchensService {
     if (existing) {
       throw new ConflictException('Owner already has a kitchen.');
     }
-    const kitchen = this.kitchensRepository.create(createKitchenDto);
+    const { latitude, longitude, ...rest } = createKitchenDto;
+    const kitchen = this.kitchensRepository.create({
+      ...rest,
+      ...(latitude !== undefined ? { latitude: String(latitude) } : {}),
+      ...(longitude !== undefined ? { longitude: String(longitude) } : {}),
+    });
     return this.kitchensRepository.save(kitchen);
   }
 
@@ -46,7 +51,15 @@ export class KitchensService {
   }
 
   async update(id: string, updateKitchenDto: UpdateKitchenDto) {
-    await this.kitchensRepository.update(id, updateKitchenDto as any);
+    const { latitude, longitude, ...rest } = updateKitchenDto;
+    const payload: Record<string, unknown> = { ...rest };
+    if (latitude !== undefined) {
+      payload.latitude = String(latitude);
+    }
+    if (longitude !== undefined) {
+      payload.longitude = String(longitude);
+    }
+    await this.kitchensRepository.update(id, payload as any);
     return this.findOne(id);
   }
 

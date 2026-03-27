@@ -298,6 +298,8 @@ Updates the authenticated user's profile. Requires the current password for secu
 | `address`               | string         | No       | Updated address.                                                            |
 | `phone_number`          | string         | No       | Updated phone number.                                                       |
 | `pincode`               | string         | No       | Updated pincode.                                                            |
+| `latitude`              | number \| null | No       | Delivery pin (WGS84). Send **`null`** to clear. Used for live route/ETA.    |
+| `longitude`             | number \| null | No       | Delivery pin (WGS84). Send **`null`** to clear.                             |
 | `profile_picture_url`   | string \| null | No       | Full **http** or **https** URL (max 2048 chars). Send **`null`** to remove. |
 
 
@@ -495,6 +497,8 @@ Creates a new kitchen profile for the authenticated user.
 | `details`         | object  | No       | Additional details (address, phone, description).     |
 | `operating_hours` | object  | No       | Operating hours configuration (Times in **HH:MM**).   |
 | `image_url`       | string  | No       | URL to the kitchen's cover image.                     |
+| `latitude`        | number  | No       | Pickup location (WGS84) for driver navigation / tracking. |
+| `longitude`       | number  | No       | Pickup location (WGS84).                              |
 | `is_active`       | boolean | No       | Whether the kitchen is active (default: true).        |
 | `is_menu_visible` | boolean | No       | Whether the menu is visible to users (default: true). |
 
@@ -725,6 +729,72 @@ Returns the **4-digit** handoff code the customer shows the delivery partner at 
 - If Redis had no code but the order is still `OUT_FOR_DELIVERY` (e.g. rare cache loss), the server creates a new code.
 
 **Errors:** `400` if the order is not `OUT_FOR_DELIVERY`; `403` if the client does not own the order.
+
+### Get order tracking (live map / ETA)
+
+**Implementation guide (client apps, credentials, polling, polylines):** **[`docs/Maps.md`](./Maps.md)**
+
+**GET** `/orders/:id/tracking`
+**Roles:** `CLIENT` (order owner), `DELIVERY_DRIVER` (assigned driver), or `ADMIN`.
+
+Returns a **snapshot** for polling: last driver position (Redis), destination coordinates, and an optional **Google Routes** polyline with distance and ETA.
+
+**Visibility**
+
+| Role | When allowed |
+| ---- | ------------ |
+| `CLIENT` | Order status is **`PICKED_UP`** or **`OUT_FOR_DELIVERY`** (customer sees live tracking only after pickup). |
+| `DELIVERY_DRIVER` | Assigned to the order and status is **`ACCEPTED`**, **`READY`**, **`PICKED_UP`**, or **`OUT_FOR_DELIVERY`**. |
+| `ADMIN` | Same status window as driver (no ownership check). |
+
+**Coordinates:** Pickup uses **`kitchens.latitude` / `kitchens.longitude`** (or geocoded `details.address`). Drop-off uses **`users.latitude` / `users.longitude`** on the client (or geocoded `address` + `pincode`). Set coordinates via kitchen create/update and **`PATCH /users/me`** (`latitude` / `longitude` optional fields). If the API cannot resolve a destination, `destination` is `null` and `route_error` explains why.
+
+**Response (selected fields):**
+
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `order_id` | string | Order UUID. |
+| `order_status` | string | Current `OrderStatus`. |
+| `phase` | string | `TO_PICKUP` (driver → kitchen) or `TO_DROPOFF` (driver → customer). |
+| `driver_position` | object \| null | `{ lat, lng, heading, recordedAt }` from the driver’s last **`PATCH /deliveries/:id/location`**. |
+| `destination` | object \| null | `{ latitude, longitude, label }`. |
+| `route` | object \| null | `{ encodedPolyline, distanceMeters, durationSeconds, eta }` (Google); cached ~55s server-side. |
+| `route_error` | string \| null | e.g. missing API key, no driver position yet, geocoding failure. |
+
+**Rate limits:** Throttled in production (see app throttler); clients should poll about every **5–10 seconds**.
+
+**Example response (200):**
+
+```json
+{
+  "order_id": "28ba8bab-8c42-4e7a-beac-c5843965b260",
+  "order_status": "OUT_FOR_DELIVERY",
+  "phase": "TO_DROPOFF",
+  "driver_position": {
+    "lat": 19.074,
+    "lng": 72.875,
+    "heading": 180,
+    "recordedAt": "2026-03-27T12:00:05.000Z"
+  },
+  "destination": {
+    "latitude": 19.08,
+    "longitude": 72.88,
+    "label": "123 MG Road, Mumbai"
+  },
+  "route": {
+    "encodedPolyline": "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+    "distanceMeters": 2400,
+    "durationSeconds": 420,
+    "eta": "2026-03-27T12:07:00.000Z"
+  },
+  "route_error": null
+}
+```
+
+`driver_position`, `destination`, or `route` may be `null` depending on whether the driver has reported location, coordinates/geocoding succeeded, and whether routing ran successfully. See **`route_error`** when `route` is null.
+
+**Errors:** `400` if the order is not in an allowed status for that role; `403` if the caller cannot access the order; `404` if the order does not exist.
 
 ### Accept Order
 
@@ -1089,6 +1159,30 @@ Updates status to `PICKED_UP`.
 Updates status to `OUT_FOR_DELIVERY`.
 
 **Side effect:** Issues a new **4-digit** handoff code in Redis for this order (4-hour TTL) so the customer can retrieve it via **`GET /orders/:id/delivery-handoff-otp`**. If Redis cannot store the code, the request fails and the status is not updated.
+
+### Update driver GPS location
+
+**Driver app integration (intervals, errors, map keys):** **[`docs/Maps.md`](./Maps.md)**
+
+**PATCH** `/deliveries/:id/location`
+**Role Required:** `DELIVERY_DRIVER`
+
+Stores the driver’s latest position in **Redis** for **`GET /orders/:id/tracking`**. Allowed only for the **assigned** driver while status is **`READY`**, **`PICKED_UP`**, or **`OUT_FOR_DELIVERY`**.
+
+**Request body (JSON):**
+
+
+| Field | Type | Required | Description |
+| ----- | ---- | -------- | ----------- |
+| `lat` | number | **Yes** | WGS84 latitude (−90…90). |
+| `lng` | number | **Yes** | WGS84 longitude (−180…180). |
+| `heading` | number | No | Bearing in degrees, if available from the device. |
+
+**Response:** `{ "ok": true, "recordedAt": "<ISO8601>" }`
+
+**Side effect (optional):** When status is **`OUT_FOR_DELIVERY`**, if the driver is within **~500 m** (straight-line) of the customer drop-off and a one-shot Redis flag is not set, the customer receives a **Driver is nearby** FCM (requires Firebase + client FCM token).
+
+**Rate limits:** Enforced even in development (`@ForceThrottle`): **30 requests / minute** per default throttler scope.
 
 ### Finish Delivery
 

@@ -22,6 +22,9 @@ import { OrderStatus } from './entities/order.entity';
 import { KitchensService } from '../kitchens/kitchens.service';
 import { ResponseMapper } from '../common/utils/response.mapper';
 import { DeliveryHandoffOtpService } from '../deliveries/delivery-handoff-otp.service';
+import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
+import { Throttle } from '@nestjs/throttler';
+import { ForceThrottle } from '../common/decorators/force-throttle.decorator';
 
 @Controller('orders')
 export class OrdersController {
@@ -29,6 +32,7 @@ export class OrdersController {
     private readonly ordersService: OrdersService,
     private readonly kitchenService: KitchensService,
     private readonly deliveryHandoffOtpService: DeliveryHandoffOtpService,
+    private readonly deliveryTrackingService: DeliveryTrackingService,
   ) {}
 
   @Post()
@@ -56,6 +60,25 @@ export class OrdersController {
       );
     }
     return this.deliveryHandoffOtpService.getOrCreateForOrder(order.id);
+  }
+
+  @Get(':id/tracking')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(
+    UserRole.CLIENT,
+    UserRole.DELIVERY_DRIVER,
+    UserRole.ADMIN,
+  )
+  @ForceThrottle()
+  @Throttle({ default: { limit: 60, ttl: 60000 } })
+  async getTracking(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
+  ) {
+    return this.deliveryTrackingService.getTrackingSnapshot(id, {
+      userId: req.user.userId,
+      role: req.user.role,
+    });
   }
 
   @Get()

@@ -7,6 +7,9 @@ import {
   IsObject,
   ValidateNested,
   IsBoolean,
+  IsNumber,
+  Min,
+  Max,
 } from 'class-validator';
 
 export class CreateKitchenDto {
@@ -29,6 +32,19 @@ export class CreateKitchenDto {
   @IsString()
   @IsOptional()
   image_url: string;
+
+  /** Pickup pin for driver navigation (WGS84). */
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
 
   @IsOptional()
   is_active: boolean;

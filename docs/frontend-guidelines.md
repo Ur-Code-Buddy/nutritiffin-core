@@ -4,6 +4,8 @@ Base URL: https://backend.v1.nutritiffin.com
 
 This document outlines how to integrate with the NutriTiffin backend, focusing on authentication, kitchen management, and image handling.
 
+**Live delivery maps (customer + driver apps):** see **[`Maps.md`](./Maps.md)** for `GET /orders/:id/tracking`, `PATCH /deliveries/:id/location`, polling, and Google keys.
+
 1. Authentication & User Registration
 
 ---

@@ -8,6 +8,8 @@ import {
   Request,
   ForbiddenException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { ForceThrottle } from '../common/decorators/force-throttle.decorator';
 import { DeliveriesService } from './deliveries.service';
 import { UsersService } from '../users/users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -17,6 +19,8 @@ import { UserRole } from '../users/user.role.enum';
 import { OrderStatus } from '../orders/entities/order.entity';
 import { ResponseMapper } from '../common/utils/response.mapper';
 import { FinishDeliveryDto } from './dto/finish-delivery.dto';
+import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
+import { UpdateDriverLocationDto } from '../delivery-tracking/dto/update-driver-location.dto';
 
 @Controller('deliveries')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -25,6 +29,7 @@ export class DeliveriesController {
   constructor(
     private readonly deliveriesService: DeliveriesService,
     private readonly usersService: UsersService,
+    private readonly deliveryTrackingService: DeliveryTrackingService,
   ) {}
 
   @Get('credits')
@@ -58,6 +63,21 @@ export class DeliveriesController {
   @Patch(':id/out-for-delivery')
   outForDelivery(@Param('id') id: string, @Request() req: any) {
     return this.deliveriesService.outForDelivery(id, req.user.userId);
+  }
+
+  @Patch(':id/location')
+  @ForceThrottle()
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  updateLocation(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() body: UpdateDriverLocationDto,
+  ) {
+    return this.deliveryTrackingService.updateDriverLocation(
+      id,
+      req.user.userId,
+      body,
+    );
   }
 
   @Patch(':id/finish')

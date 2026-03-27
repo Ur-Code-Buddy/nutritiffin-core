@@ -13,6 +13,7 @@ import { FoodItem } from '../food-items/entities/food-item.entity';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { DeliveriesModule } from '../deliveries/deliveries.module';
+import { DeliveryTrackingModule } from '../delivery-tracking/delivery-tracking.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { DeliveriesModule } from '../deliveries/deliveries.module';
     UsersModule,
     NotificationsModule,
     DeliveriesModule,
+    DeliveryTrackingModule,
   ],
   controllers: [OrdersController, PaymentsController],
   providers: [OrdersService, PaymentsService],

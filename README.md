@@ -68,6 +68,7 @@
 - **Media** — **AWS S3** for uploads (e.g. avatars, food images) with validation and presigned-style patterns as implemented in services.
 - **Async work** — **Redis** + **BullMQ** (e.g. order-related jobs via `JobsModule`).
 - **Push (optional)** — **Firebase Admin** in `NotificationsModule` for FCM when a service account key is present.
+- **Live delivery tracking** — Driver GPS in **Redis**, **Google Routes** for ETA/polyline (`GOOGLE_MAPS_API_KEY`); see [`docs/Maps.md`](docs/Maps.md).
 
 ---
 
@@ -115,6 +116,7 @@ AppModule
 ├── FoodItemsModule      Menu, availability, daily limits
 ├── OrdersModule         Orders, state transitions, Razorpay payments
 ├── DeliveriesModule     Driver workflow
+├── DeliveryTrackingModule  Live GPS + Google Routes (Redis, tracking DTOs)
 ├── TransactionsModule   Credit ledger, listings
 ├── UploadModule         S3 uploads
 ├── JobsModule           BullMQ-backed background processing
@@ -227,7 +229,8 @@ Authoritative request/response detail lives in **[`docs/api-reference.md`](docs/
 | **Menu** | Owner CRUD, public menu by kitchen, availability |
 | **Orders** | Create/list, accept/reject, role-scoped reads |
 | **Payments** | `POST /payments/initiate`, `POST /payments/confirm` (Razorpay) |
-| **Deliveries** | Available jobs, accept, pickup, out for delivery, finish |
+| **Deliveries** | Available jobs, accept, pickup, out for delivery, finish, **GPS pings** (`PATCH /deliveries/:id/location`) |
+| **Live tracking** | Customer/driver **map snapshot** (`GET /orders/:id/tracking`) — see [`docs/Maps.md`](docs/Maps.md) |
 | **Transactions** | Paginated history (user/admin) |
 | **Reviews** | Create (client), list by item/kitchen, “my reviews” |
 | **Upload** | Image upload to S3 |
@@ -240,6 +243,7 @@ Authoritative request/response detail lives in **[`docs/api-reference.md`](docs/
 | Document | Purpose |
 | :--- | :--- |
 | [`docs/api-reference.md`](docs/api-reference.md) | Endpoint reference and auth pipeline |
+| [`docs/Maps.md`](docs/Maps.md) | Live delivery tracking: client/driver implementation, endpoints, Google keys |
 | [`docs/api.md`](docs/api.md) | Additional API notes (if present) |
 | [`docs/role-client.md`](docs/role-client.md) | Client journeys |
 | [`docs/role-kitchen-owner.md`](docs/role-kitchen-owner.md) | Kitchen owner flows |
@@ -302,6 +306,7 @@ backend/
 │   ├── food-items/
 │   ├── orders/          Orders, payments (Razorpay)
 │   ├── deliveries/
+│   ├── delivery-tracking/  Live GPS, Google Routes/Geocoding, Redis tracking keys
 │   ├── transactions/
 │   ├── reviews/
 │   ├── notifications/   Firebase push (when configured)
@@ -326,4 +331,4 @@ backend/
 
 Developed by **[Ur-Code-Buddy](https://github.com/Ur-Code-Buddy)**.
 
-For deep dives, start with [`docs/api-reference.md`](docs/api-reference.md) and the module map above.
+For deep dives, start with [`docs/api-reference.md`](docs/api-reference.md) and the module map above. For map/tracking integration, see [`docs/Maps.md`](docs/Maps.md).

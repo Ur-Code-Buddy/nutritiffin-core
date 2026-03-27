@@ -189,6 +189,26 @@ export class UsersService {
       changedFields.push('pincode');
     }
 
+    if (dto.latitude !== undefined) {
+      const next =
+        dto.latitude === null ? null : String(dto.latitude);
+      const prev = user.latitude ?? null;
+      if (next !== prev) {
+        user.latitude = next;
+        changedFields.push('latitude');
+      }
+    }
+
+    if (dto.longitude !== undefined) {
+      const next =
+        dto.longitude === null ? null : String(dto.longitude);
+      const prev = user.longitude ?? null;
+      if (next !== prev) {
+        user.longitude = next;
+        changedFields.push('longitude');
+      }
+    }
+
     if (
       dto.phone_number !== undefined &&
       dto.phone_number !== user.phone_number

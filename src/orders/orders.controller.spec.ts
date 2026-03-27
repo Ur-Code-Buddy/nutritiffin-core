@@ -3,6 +3,7 @@ import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { KitchensService } from '../kitchens/kitchens.service';
 import { DeliveryHandoffOtpService } from '../deliveries/delivery-handoff-otp.service';
+import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
 
 describe('OrdersController', () => {
   let controller: OrdersController;
@@ -32,6 +33,13 @@ describe('OrdersController', () => {
           provide: DeliveryHandoffOtpService,
           useValue: {
             getOrCreateForOrder: jest.fn(),
+          },
+        },
+        {
+          provide: DeliveryTrackingService,
+          useValue: {
+            getTrackingSnapshot: jest.fn(),
+            updateDriverLocation: jest.fn(),
           },
         },
       ],
