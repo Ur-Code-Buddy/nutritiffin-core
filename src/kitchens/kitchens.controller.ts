@@ -14,6 +14,7 @@ import { KitchensService } from './kitchens.service';
 import { UsersService } from '../users/users.service';
 import { CreateKitchenDto } from './dto/create-kitchen.dto';
 import { UpdateKitchenDto } from './dto/update-kitchen.dto';
+import { SetAutoAcceptOrdersDto } from './dto/set-auto-accept-orders.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -32,6 +33,20 @@ export class KitchensController {
   async getCredits(@Request() req: any) {
     const user = await this.usersService.findOneById(req.user.userId);
     return { credits: user ? user.credits : 0 };
+  }
+
+  /** Toggle automatic acceptance of new orders (kitchen owner only; one kitchen per owner). */
+  @Patch('me/auto-accept-orders')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.KITCHEN_OWNER)
+  setAutoAcceptOrders(
+    @Request() req: any,
+    @Body() dto: SetAutoAcceptOrdersDto,
+  ) {
+    return this.kitchensService.setAutoAcceptOrders(
+      req.user.userId,
+      dto.enabled,
+    );
   }
 
   @Post()

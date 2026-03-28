@@ -51,4 +51,8 @@ export class CreateKitchenDto {
 
   @IsOptional()
   is_menu_visible: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  auto_accept_orders?: boolean;
 }

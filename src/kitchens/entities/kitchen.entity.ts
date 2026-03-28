@@ -53,6 +53,13 @@ export class Kitchen {
   @Column({ default: true })
   is_menu_visible: boolean;
 
+  /**
+   * When true, new orders for this kitchen are created as ACCEPTED (no manual accept/reject).
+   * Kitchen owners toggle via PATCH /kitchens/me/auto-accept-orders.
+   */
+  @Column({ default: false })
+  auto_accept_orders: boolean;
+
   @Column({ nullable: true })
   image_url: string;
 

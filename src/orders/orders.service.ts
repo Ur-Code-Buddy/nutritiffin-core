@@ -223,6 +223,14 @@ export class OrdersService {
     try {
       const quote = await this.buildOrderQuote(dto, queryRunner);
 
+      const kitchenRow = await queryRunner.manager.findOne(Kitchen, {
+        where: { id: dto.kitchen_id },
+      });
+      if (!kitchenRow) {
+        throw new BadRequestException('Kitchen not found');
+      }
+      const autoAccept = Boolean(kitchenRow.auto_accept_orders);
+
       // Idempotency guard: if the same razorpay payment is confirmed again,
       // just return the existing order instead of creating duplicates.
       if (paymentMeta?.razorpayPaymentId) {
@@ -235,12 +243,13 @@ export class OrdersService {
         }
       }
 
-      // 4. Create Order
+      // 4. Create Order (ACCEPTED immediately when kitchen has auto_accept_orders)
       const order = queryRunner.manager.create(Order, {
         client_id: clientId,
         kitchen_id: dto.kitchen_id,
         scheduled_for: dto.scheduled_for,
-        status: OrderStatus.PENDING,
+        status: autoAccept ? OrderStatus.ACCEPTED : OrderStatus.PENDING,
+        ...(autoAccept ? { accepted_at: new Date() } : {}),
         items: quote.orderItems,
         total_price: quote.grandTotal,
         platform_fees: quote.platformFees,
@@ -256,40 +265,45 @@ export class OrdersService {
 
       await queryRunner.commitTransaction();
 
-      // Send Firebase Notification to Kitchen Owner
+      // Notify kitchen owner (wording reflects auto-accept)
       try {
-        const kitchen = await queryRunner.manager.findOne(Kitchen, {
-          where: { id: dto.kitchen_id },
-        });
-        if (kitchen) {
-          const kitchenOwner = await this.usersService.findOneById(
-            kitchen.owner_id,
+        const kitchenOwner = await this.usersService.findOneById(
+          kitchenRow.owner_id,
+        );
+        if (kitchenOwner?.fcm_token) {
+          this.notificationsService.sendPushNotification(
+            kitchenOwner.fcm_token,
+            'New Order Received!',
+            autoAccept
+              ? 'A new order was placed and automatically accepted.'
+              : 'A new order was placed. Please check your dashboard.',
+            { orderId: savedOrder.id },
           );
-          if (kitchenOwner && kitchenOwner.fcm_token) {
-            this.notificationsService.sendPushNotification(
-              kitchenOwner.fcm_token,
-              'New Order Received!',
-              `A new order was placed. Please check your dashboard.`,
-              { orderId: savedOrder.id },
-            );
-          }
         }
       } catch (notifErr) {
         this.logger.error('Failed to send push notification', notifErr);
       }
 
-      // 5. Trigger Auto-Reject Job (10 mins)
-      try {
-        await this.ordersQueue.add(
-          'order-timeout',
-          { orderId: savedOrder.id },
-          { delay: 10 * 60 * 1000, jobId: `timeout-${savedOrder.id}` },
+      if (autoAccept) {
+        await this.notifyClientOrderAcceptedOrReady(
+          savedOrder,
+          OrderStatus.ACCEPTED,
         );
-      } catch (queueErr) {
-        // In production, we prefer a successful order over background timeout logic.
-        this.logger.error(
-          `Failed to enqueue order-timeout job for order ${savedOrder.id}: ${queueErr?.message ?? queueErr}`,
-        );
+      }
+
+      // 5. Pending orders only: auto-reject if kitchen does not respond in time
+      if (!autoAccept) {
+        try {
+          await this.ordersQueue.add(
+            'order-timeout',
+            { orderId: savedOrder.id },
+            { delay: 10 * 60 * 1000, jobId: `timeout-${savedOrder.id}` },
+          );
+        } catch (queueErr) {
+          this.logger.error(
+            `Failed to enqueue order-timeout job for order ${savedOrder.id}: ${queueErr?.message ?? queueErr}`,
+          );
+        }
       }
 
       return savedOrder;
@@ -355,33 +369,43 @@ export class OrdersService {
       return this.onOrderRejected(savedOrder);
     }
 
+    await this.notifyClientOrderAcceptedOrReady(savedOrder, status);
+
+    return savedOrder;
+  }
+
+  private async notifyClientOrderAcceptedOrReady(
+    order: Order,
+    status: OrderStatus,
+  ): Promise<void> {
+    if (status !== OrderStatus.ACCEPTED && status !== OrderStatus.READY) {
+      return;
+    }
     try {
       const client = await this.usersService.findOneById(order.client_id);
-      if (client && client.fcm_token) {
-        let title = '';
-        let body = '';
-        if (status === OrderStatus.ACCEPTED) {
-          title = 'Order Accepted!';
-          body = 'Your order has been accepted and is being prepared.';
-        } else if (status === OrderStatus.READY) {
-          title = 'Order Ready for Pickup!';
-          body = 'Your order is ready and waiting for a delivery driver.';
-        }
-
-        if (title && body) {
-          this.notificationsService.sendPushNotification(
-            client.fcm_token,
-            title,
-            body,
-            { orderId: savedOrder.id },
-          );
-        }
+      if (!client?.fcm_token) {
+        return;
+      }
+      let title = '';
+      let body = '';
+      if (status === OrderStatus.ACCEPTED) {
+        title = 'Order Accepted!';
+        body = 'Your order has been accepted and is being prepared.';
+      } else if (status === OrderStatus.READY) {
+        title = 'Order Ready for Pickup!';
+        body = 'Your order is ready and waiting for a delivery driver.';
+      }
+      if (title && body) {
+        await this.notificationsService.sendPushNotification(
+          client.fcm_token,
+          title,
+          body,
+          { orderId: order.id },
+        );
       }
     } catch (notifErr) {
       this.logger.error('Failed to send push notification to client', notifErr);
     }
-
-    return savedOrder;
   }
 
   /**

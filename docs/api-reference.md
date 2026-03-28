@@ -501,6 +501,7 @@ Creates a new kitchen profile for the authenticated user.
 | `longitude`       | number  | No       | Pickup location (WGS84).                              |
 | `is_active`       | boolean | No       | Whether the kitchen is active (default: true).        |
 | `is_menu_visible` | boolean | No       | Whether the menu is visible to users (default: true). |
+| `auto_accept_orders` | boolean | No    | If `true`, new orders for this kitchen are persisted as **ACCEPTED** (see [Orders](#orders-orders)). Default `false`. |
 
 
 ### Get Kitchen Credits
@@ -531,6 +532,24 @@ Updates an existing kitchen profile.
 
 **Request Body:**
 Partial of **Create Kitchen** body.
+
+### Set auto-accept orders (kitchen owner)
+
+**PATCH** `/kitchens/me/auto-accept-orders`
+**Role Required:** `KITCHEN_OWNER`
+
+Sets **`auto_accept_orders`** for the authenticated owner’s kitchen (one kitchen per owner). Same effect as including `auto_accept_orders` in **PATCH** `/kitchens/:id` for that kitchen.
+
+**Request body:**
+
+
+| Field     | Type    | Required | Description                        |
+| --------- | ------- | -------- | ---------------------------------- |
+| `enabled` | boolean | **Yes**  | `true` to auto-accept new orders; `false` to require manual accept/reject. |
+
+**Responses:** `200` with full kitchen object; `404` if the user has no kitchen.
+
+**Behaviour:** When enabled, **`POST /orders`** and **`POST /payments/confirm`** create orders with status **`ACCEPTED`** and **`accepted_at`** set; the pending-order timeout job is not enqueued; the client receives the usual “order accepted” push. Existing **PENDING** orders are not changed.
 
 ---
 
@@ -612,6 +631,8 @@ Sets the availability of a specific item.
 Places a new order **immediately** (saved to the database on success). Does not go through Razorpay.
 
 For **advance payment** before persisting the order, use `**POST /payments/initiate`** then `**POST /payments/confirm`** (see [Payments (`/payments`)](#payments-payments) below).
+
+If the target kitchen has **`auto_accept_orders: true`**, the saved order is **`ACCEPTED`** immediately (see [Kitchens](#kitchens-kitchens)); otherwise it starts **`PENDING`** until the kitchen accepts or rejects (or the server auto-rejects after timeout).
 
 **Request Body:**
 
@@ -698,7 +719,7 @@ Retrieves details of a specific order.
 }
 ```
 
-When a **paid** order is **rejected** (kitchen reject or auto timeout), the backend creates a **full Razorpay refund**, sets `refund_status` to `PENDING`, and fills `refund_expected_by` (7 business days after initiation, UTC). The client receives a push notification with refund messaging. Unpaid (legacy) orders get `refund_status` `NOT_APPLICABLE`.
+When a **paid** order is **rejected** (kitchen reject or auto timeout on **PENDING** orders), the backend creates a **full Razorpay refund**, sets `refund_status` to `PENDING`, and fills `refund_expected_by` (7 business days after initiation, UTC). The client receives a push notification with refund messaging. Unpaid (legacy) orders get `refund_status` `NOT_APPLICABLE`. Orders created under **auto-accept** never enter **PENDING**, so they are not subject to that timeout reject.
 
 ### Get delivery handoff OTP (in-app)
 
@@ -801,7 +822,7 @@ Returns a **snapshot** for polling: last driver position (Redis), destination co
 **PATCH** `/orders/:id/accept`
 **Role Required:** `KITCHEN_OWNER`
 
-Marks an order as `ACCEPTED`.
+Marks an order as `ACCEPTED` (only when the current status is **`PENDING`**). Orders that were auto-accepted at creation are already **`ACCEPTED`**; this endpoint is not required for them.
 
 ### Mark Order Ready
 
@@ -860,6 +881,8 @@ Runs the same validations as **Create Order** (schedule window, item availabilit
 
 
 **Response:** Created `Order` entity (same as **Create Order**), with `paymentStatus: PAID` and Razorpay ids set.
+
+If the kitchen has **`auto_accept_orders: true`**, the order may already have **`status: ACCEPTED`** and **`accepted_at`** set (same as **Create Order**).
 
 **Errors:** `400 Bad Request` if signature invalid, payment not `captured`, payment/order mismatch, amount mismatch vs server quote, or order validation fails.
 

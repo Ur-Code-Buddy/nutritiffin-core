@@ -44,6 +44,7 @@ Each kitchen belongs to exactly one owner.
 | image_url         | string   | Kitchen cover image URL            |
 | is_active         | boolean  | Whether kitchen is active          |
 | is_menu_visible   | boolean  | Whether menu is visible to clients |
+| auto_accept_orders | boolean | When `true`, new orders are created as **ACCEPTED** (no manual accept/reject). Default `false`. |
 | is_veg            | boolean  | Defaults to false (non-veg). If true, it is vegetarian |
 | positive_count    | number   | Number of thumbs up / positive reviews |
 | negative_count    | number   | Number of thumbs down / negative reviews |
@@ -104,6 +105,7 @@ Authorization: Bearer <JWT_TOKEN>
 | image_url         | No       | Public image URL                                                 |
 | is_active         | No       | Defaults to true                                                 |
 | is_menu_visible   | No       | Defaults to true                                                 |
+| auto_accept_orders | No      | Defaults to `false`. If `true`, new orders skip **PENDING** (see §5). |
 | availability_days | No       | List of available days                                           |
 
 ---
@@ -244,8 +246,10 @@ Updatable fields:
 - details
 - operating_hours
 - image_url
+- latitude, longitude (pickup pin)
 - is_active
 - is_menu_visible
+- auto_accept_orders
 
 ---
 
@@ -271,7 +275,57 @@ Updatable fields:
 
 ---
 
-# 5. Get Kitchen Credits
+# 5. Auto-accept new orders (toggle)
+
+Endpoint:
+PATCH /kitchens/me/auto-accept-orders
+
+Role Required:
+KITCHEN_OWNER
+
+Headers:
+Authorization: Bearer <JWT_TOKEN>
+
+Turns **automatic acceptance** on or off for **your** kitchen (the one linked to the authenticated owner). You do not pass a kitchen id in the URL; the server resolves it from the JWT.
+
+When **enabled**, every **new** order placed against your kitchen (via `POST /orders` or the Razorpay `POST /payments/confirm` path) is stored as **`ACCEPTED`** immediately, with **`accepted_at`** set. The kitchen does **not** need to call `PATCH /orders/:id/accept`. The **10-minute auto-reject** timeout job is **not** scheduled for those orders. The customer receives the same **“order accepted”** push as after a manual accept.
+
+When **disabled**, behaviour matches the default: new orders start as **`PENDING`**, the timeout job applies, and the kitchen must accept or reject.
+
+You can also set `auto_accept_orders` via **PATCH /kitchens/:id** on your own kitchen (partial body).
+
+---
+
+## Request Body
+
+```json
+{
+  "enabled": true
+}
+```
+
+| Field    | Type    | Required | Description                          |
+| -------- | ------- | -------- | ------------------------------------ |
+| enabled  | boolean | **Yes**  | `true` to auto-accept; `false` off. |
+
+---
+
+## Success Response (200 OK)
+
+Returns the full kitchen object (same shape as **Get Kitchen By ID**), including `auto_accept_orders`.
+
+---
+
+## Error Responses
+
+401 Unauthorized  
+403 Forbidden  
+404 Not Found — no kitchen exists for this account.  
+400 Bad Request — invalid body (e.g. missing `enabled`).
+
+---
+
+# 6. Get Kitchen Credits
 
 Endpoint:
 GET /kitchens/credits
@@ -296,7 +350,7 @@ Returns the current credit balance of the authenticated kitchen owner.
 
 ---
 
-# 6. Transaction History
+# 7. Transaction History
 
 Endpoint:
 GET /transactions/my
@@ -389,7 +443,8 @@ Error Responses:
 3. Clients can view only active kitchens.
 4. Inactive kitchens may be hidden from public listing.
 5. Each kitchen is linked to exactly one owner.
-6. All IDs are UUID format.
+6. **Auto-accept** affects only **new** orders created after the flag is on; existing **PENDING** orders are unchanged.
+7. All IDs are UUID format.
 
 ---
 
@@ -413,5 +468,6 @@ Error Responses:
 - Update kitchen as owner
 - Attempt update as non owner
 - Attempt update without token
+- Toggle auto-accept: PATCH /kitchens/me/auto-accept-orders with `{ "enabled": true }` then place a test order and confirm status is ACCEPTED without calling accept
 
 All endpoints have been tested and verified.

@@ -189,6 +189,74 @@ describe('OrdersService', () => {
     jest.useRealTimers();
   });
 
+  it('should create ACCEPTED order and skip timeout job when kitchen auto_accept_orders is on', async () => {
+    jest.useFakeTimers({
+      now: new Date(Date.UTC(2026, 2, 20, 12, 0, 0)),
+    });
+    const foodItem = {
+      id: 'item-1',
+      price: 10,
+      active: true,
+      max_daily_orders: 100,
+      availability: [],
+    };
+    const createDto = {
+      kitchen_id: 'kitchen-1',
+      scheduled_for: '2026-03-21',
+      items: [{ food_item_id: 'item-1', quantity: 1 }],
+    };
+
+    const mockOrdersRepo = module.get(getRepositoryToken(Order));
+    const mockOrdersQueue = module.get(getQueueToken('orders'));
+    const queryRunner = mockOrdersRepo.manager.connection.createQueryRunner();
+    queryRunner.manager.findOne.mockImplementation((entity: any) => {
+      if (entity && entity.name === 'FoodItem')
+        return Promise.resolve(foodItem);
+      if (entity && entity.name === 'Kitchen')
+        return Promise.resolve({
+          id: 'kitchen-1',
+          owner_id: 'owner-1',
+          auto_accept_orders: true,
+        });
+      return Promise.resolve(null);
+    });
+
+    const mockUsersService = module.get<UsersService>(UsersService);
+    const mockNotificationsService =
+      module.get<NotificationsService>(NotificationsService);
+    jest.spyOn(mockUsersService, 'findOneById').mockImplementation((id) => {
+      if (id === 'owner-1') {
+        return Promise.resolve({
+          id: 'owner-1',
+          fcm_token: 'kitchen_fcm',
+        } as any);
+      }
+      if (id === 'client-1') {
+        return Promise.resolve({
+          id: 'client-1',
+          fcm_token: 'client_fcm',
+        } as any);
+      }
+      return Promise.resolve(null);
+    });
+    jest
+      .spyOn(mockNotificationsService, 'sendPushNotification')
+      .mockResolvedValue(undefined);
+
+    const result = await service.create('client-1', createDto as any);
+
+    expect(result.status).toBe(OrderStatus.ACCEPTED);
+    expect(result.accepted_at).toBeDefined();
+    expect(mockOrdersQueue.add).not.toHaveBeenCalled();
+    expect(mockNotificationsService.sendPushNotification).toHaveBeenCalledWith(
+      'client_fcm',
+      'Order Accepted!',
+      expect.any(String),
+      expect.objectContaining({ orderId: 'order-1' }),
+    );
+    jest.useRealTimers();
+  });
+
   it('should accept orders for tomorrow (1 day in advance)', async () => {
     jest.useFakeTimers({
       now: new Date(Date.UTC(2026, 2, 20, 12, 0, 0)),

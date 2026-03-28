@@ -41,6 +41,12 @@ This document outlines how to integrate with the NutriTiffin backend, focusing o
 
 - Update Kitchen: PATCH /kitchens/:id
   - Send only fields that need changing.
+  - Optional `auto_accept_orders` (boolean): when `true`, new orders for this kitchen are saved as **ACCEPTED** without the owner tapping accept (see below).
+
+- Auto-accept toggle: PATCH /kitchens/me/auto-accept-orders
+  - Body: `{ "enabled": true }` or `{ "enabled": false }`.
+  - Kitchen-owner only; resolves the kitchen from the JWT (one kitchen per owner).
+  - When enabled, order flows (`POST /payments/confirm` or legacy `POST /orders`) return orders already **ACCEPTED**; the kitchen app can skip accept/reject for those and go straight to prep / **PATCH /orders/:id/ready** when appropriate.
 
 3. Image Upload Flow
 
@@ -90,6 +96,8 @@ Step-by-Step Implementation:
 **Tracking:**
 
 - `GET /orders` — list; `GET /orders/:id` — detail (status: PENDING, ACCEPTED, READY, etc.).
+
+Some kitchens use **auto-accept** (`auto_accept_orders` on `GET /kitchens/:id` or owner toggle). For those, the created order may already be **`ACCEPTED`** with **`accepted_at`** set; the client should not assume every new order starts as **PENDING**.
 
 See also `docs/api.md` and `docs/api-reference.md` § Payments.
 

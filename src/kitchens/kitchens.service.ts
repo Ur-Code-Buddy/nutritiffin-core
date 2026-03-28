@@ -50,6 +50,15 @@ export class KitchensService {
     return this.kitchensRepository.findOne({ where: { owner_id: ownerId } });
   }
 
+  async setAutoAcceptOrders(ownerId: string, enabled: boolean) {
+    const kitchen = await this.findByOwner(ownerId);
+    if (!kitchen) {
+      throw new NotFoundException('No kitchen found for this account');
+    }
+    await this.kitchensRepository.update(kitchen.id, { auto_accept_orders: enabled });
+    return this.findOne(kitchen.id);
+  }
+
   async update(id: string, updateKitchenDto: UpdateKitchenDto) {
     const { latitude, longitude, ...rest } = updateKitchenDto;
     const payload: Record<string, unknown> = { ...rest };
