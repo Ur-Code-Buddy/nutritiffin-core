@@ -18,6 +18,8 @@
 
 <p align="center">
   <a href="#for-recruiters--interviewers"><b>Recruiter summary</b></a> ·
+  <a href="#ecosystem--mobile-apps"><b>Mobile apps</b></a> ·
+  <a href="#platform-features-this-backend-powers"><b>Features</b></a> ·
   <a href="#what-this-project-is"><b>Overview</b></a> ·
   <a href="#technical-highlights"><b>Highlights</b></a> ·
   <a href="#architecture"><b>Architecture</b></a> ·
@@ -32,18 +34,61 @@
 
 | | |
 | :--- | :--- |
-| **Domain** | B2C marketplace connecting **home kitchens** with customers who want **healthy, home-cooked meals**—not a generic restaurant-aggregator clone. |
-| **What this repository is** | The **backend only**: a **NestJS** modular monolith exposing **REST JSON APIs** for clients, kitchen owners, delivery drivers, and admins. |
-| **What it demonstrates** | **RBAC** with JWT, **PostgreSQL + TypeORM** with transactional credit operations and **pessimistic locking**, **Razorpay** payment initiation/confirmation, **AWS S3** uploads, **Redis + BullMQ** for background work, **rate limiting**, and structured **API documentation** under `docs/`. |
-| **Who uses the API** | Four roles: `CLIENT`, `KITCHEN_OWNER`, `DELIVERY_DRIVER`, `ADMIN`—each with distinct endpoints and guards. |
+| **Domain** | B2C marketplace connecting **home kitchens** with customers who want **scheduled, home-cooked meals**—menus, caps, fees, and delivery—not a thin CRUD demo. |
+| **What this repository is** | The **backend only**: a **NestJS** modular monolith exposing **REST JSON APIs** consumed by **three separate mobile applications** (see below). |
+| **Client surface** | **Three mobile apps**—**Customer**, **Kitchen owner**, and **Delivery driver**—each shipped as its **own iOS and Android** build (native stacks per platform, not one generic web shell). |
+| **What it demonstrates** | **RBAC** with JWT, **PostgreSQL + TypeORM** (transactions, pessimistic locking where money moves), **Razorpay** (initiate → verify signature → persist; refunds on rejection), **AWS S3** media, **Redis + BullMQ** jobs, **live GPS + Google Routes** for tracking, **FCM** push, **throttling**, and **role / API docs** under `docs/`. |
+| **Who uses the API** | Four roles: `CLIENT`, `KITCHEN_OWNER`, `DELIVERY_DRIVER`, `ADMIN`—each with distinct controllers, DTOs, and guards. |
 
-**One sentence:** *NutriTiffin’s backend orchestrates discovery, ordering, Razorpay-backed checkout, delivery state, an auditable in-app credit ledger, and admin operations—with security and data integrity treated as first-class concerns.*
+**Elevator pitch:** *NutriTiffin is a full operational stack for a meal marketplace: three native mobile clients talk to one hardened API that handles auth, menus, constrained ordering, payments, delivery state, optional live maps, in-app credits, and admin tooling—with integrity and abuse resistance baked in.*
+
+---
+
+## Ecosystem — mobile apps
+
+This API is the single backend for **three dedicated mobile products** (each with **separate iOS and Android** apps):
+
+| App | Audience | Typical responsibilities |
+| :--- | :--- | :--- |
+| **Customer** | End users | Discover kitchens, browse menus, place orders, pay (Razorpay), track delivery, reviews, profile & wallet. |
+| **Kitchen** | Home-kitchen operators | Menu & availability, order inbox (accept / reject / ready), earnings context, veg tagging, customer prep **notes**. |
+| **Driver** | Delivery partners | Job board, accept route, pickup → out for delivery → delivered, GPS pings, handoff verification. |
+
+Together, they show **end-to-end product thinking**: one domain model, multiple personas, shared infrastructure (auth, media, notifications, ledger).
+
+---
+
+## Platform features (this backend powers)
+
+High-level **capabilities** recruiters can map to “real product” scope:
+
+- **Identity & trust** — Registration, JWT sessions, email verification (Brevo), SMS/OTP-oriented flows, password reset, username availability with **suggested alternatives**, role-specific onboarding.
+- **Kitchens & discovery** — Kitchen CRUD, imagery, **service-area / pincode** style gating where implemented, **veg / non-veg** kitchen tagging for diet-aware UX.
+- **Menus & capacity** — Food items with **per-day availability**, **daily order limits**, inactive items; order-time validation and sold-out logic.
+- **Orders** — **1–3 days ahead** scheduling, fee breakdown (platform, kitchen, delivery, tax), status lifecycle (pending → accepted/rejected → ready → pickup → out for delivery → delivered), **optional client notes** for kitchen customization, **auto-reject timeout** (queued) when kitchens do not respond.
+- **Payments** — **Razorpay**: server-side quote validation, **HMAC signature check**, persist only after verified capture; **refund path** when orders are rejected after payment.
+- **Deliveries** — Driver assignment, state transitions, **OTP-style handoff** between driver and customer for completion.
+- **Live tracking** — Driver location in **Redis**, **Google Routes** for ETA / polyline; throttled **map snapshot** endpoints for clients and drivers.
+- **Money in-app** — **Credit wallet** with **transactional ledger**, pessimistic locking on balance changes, admin credit/debit, readable transaction references.
+- **Social proof** — Reviews for **items** and **kitchens**, scoped listing APIs.
+- **Media** — Image uploads to **AWS S3** (avatars, food photos).
+- **Engagement** — **Firebase Cloud Messaging** for push when configured (e.g. new order, status changes).
+- **Operations** — Admin user/credit/maintenance controls, **public stats** with strict rate limits, health/uptime endpoints.
+
+### Talking points for technical interviews
+
+- **Financial and inventory integrity** — Ledger updates and payment capture go through **transactions** and, where needed, **pessimistic locking**; order creation respects **per-item daily caps** with concurrency-aware querying.
+- **Verify-then-persist payments** — Razorpay **signature verification** and amount reconciliation against a server-computed quote before an order row is written; **refund orchestration** when kitchens reject paid orders.
+- **Real-world async** — **BullMQ** for time-based policies (e.g. pending-order handling) and **Redis** for queues, caching-style tracking keys, and live driver coordinates.
+- **Security posture** — JWT + **RBAC**, global **DTO validation**, **throttling** (including stricter buckets for sensitive routes), environment-driven production strictness.
+- **Third-party surface area** — **AWS S3**, **Firebase Admin (FCM)**, **Brevo**, **Google Routes/Geocoding**—integrations typical of shipping backends, not tutorial scope.
+- **Contract clarity** — **`docs/`** includes API reference and **per-role** flow documents so reviewers can validate design without spelunking every controller.
 
 ---
 
 ## What this project is
 
-**NutriTiffin** is a food-platform backend aimed at **scheduled meals**, **diet-aware offerings**, and **small kitchen operators** who need tooling comparable to larger delivery apps—menus, caps on daily orders, earnings, and driver handoff.
+**NutriTiffin** is a food-platform backend aimed at **scheduled meals**, **diet-aware offerings**, and **small kitchen operators** who need tooling comparable to larger delivery apps—menus, caps on daily orders, earnings, and driver handoff. The **three mobile apps** (customer, kitchen, driver) on **iOS and Android** are the primary consumers of this API.
 
 **Stakeholders and value**
 
