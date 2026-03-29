@@ -55,4 +55,8 @@ export class CreateKitchenDto {
   @IsOptional()
   @IsBoolean()
   auto_accept_orders?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  is_veg?: boolean;
 }

@@ -113,7 +113,11 @@ export class UsersController {
   @Get('check-username/:username')
   async checkUsername(@Param('username') username: string) {
     const user = await this.usersService.findOneByUsername(username);
-    return { exists: !!user };
+    const suggested_username = await this.usersService.suggestAvailableUsername(
+      username,
+      !!user,
+    );
+    return { exists: !!user, suggested_username };
   }
 
   @UseGuards(JwtAuthGuard)

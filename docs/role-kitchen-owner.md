@@ -45,7 +45,7 @@ Each kitchen belongs to exactly one owner.
 | is_active         | boolean  | Whether kitchen is active          |
 | is_menu_visible   | boolean  | Whether menu is visible to clients |
 | auto_accept_orders | boolean | When `true`, new orders are created as **ACCEPTED** (no manual accept/reject). Default `false`. |
-| is_veg            | boolean  | Defaults to false (non-veg). If true, it is vegetarian |
+| is_veg            | boolean  | Kitchen tag: `true` = veg, `false` = non-veg. Default **`false`** if omitted on create. |
 | positive_count    | number   | Number of thumbs up / positive reviews |
 | negative_count    | number   | Number of thumbs down / negative reviews |
 | availability_days | string[] | Days the menu is available         |
@@ -89,6 +89,7 @@ Authorization: Bearer <JWT_TOKEN>
   "image_url": "https://example.com/kitchen.jpg",
   "is_active": true,
   "is_menu_visible": true,
+  "is_veg": true,
   "availability_days": ["monday", "wednesday", "friday"]
 }
 ```
@@ -105,6 +106,7 @@ Authorization: Bearer <JWT_TOKEN>
 | image_url         | No       | Public image URL                                                 |
 | is_active         | No       | Defaults to true                                                 |
 | is_menu_visible   | No       | Defaults to true                                                 |
+| is_veg            | No       | Defaults to **`false`** (non-veg). Set **`true`** for a veg kitchen tag. |
 | auto_accept_orders | No      | Defaults to `false`. If `true`, new orders skip **PENDING** (see §5). |
 | availability_days | No       | List of available days                                           |
 
@@ -126,6 +128,8 @@ Authorization: Bearer <JWT_TOKEN>
   "image_url": "https://example.com/kitchen.jpg",
   "is_active": true,
   "is_menu_visible": true,
+  "is_veg": true,
+  "auto_accept_orders": false,
   "created_at": "2026-02-15T05:15:32.979Z",
   "updated_at": "2026-02-15T05:15:32.979Z"
 }
@@ -167,6 +171,8 @@ Returns all active kitchens.
     "image_url": "https://example.com/kitchen.jpg",
     "is_active": true,
     "is_menu_visible": true,
+    "is_veg": true,
+    "auto_accept_orders": false,
     "created_at": "2026-02-15T05:15:32.979Z",
     "updated_at": "2026-02-15T05:15:32.979Z"
   }
@@ -203,6 +209,8 @@ GET /kitchens/814cec7e-dd52-4ced-a46f-58cbff911e02
   "image_url": "https://example.com/kitchen.jpg",
   "is_active": true,
   "is_menu_visible": true,
+  "is_veg": true,
+  "auto_accept_orders": false,
   "created_at": "2026-02-15T05:15:32.979Z",
   "updated_at": "2026-02-15T05:15:32.979Z"
 }
@@ -236,7 +244,8 @@ Only the owner of the kitchen can update it.
 ```json
 {
   "name": "Updated Kitchen Name",
-  "is_menu_visible": false
+  "is_menu_visible": false,
+  "is_veg": false
 }
 ```
 
@@ -249,6 +258,7 @@ Updatable fields:
 - latitude, longitude (pickup pin)
 - is_active
 - is_menu_visible
+- is_veg
 - auto_accept_orders
 
 ---
@@ -260,6 +270,7 @@ Updatable fields:
   "id": "814cec7e-dd52-4ced-a46f-58cbff911e02",
   "name": "Updated Kitchen Name",
   "is_menu_visible": false,
+  "is_veg": false,
   "updated_at": "2026-02-15T06:10:00.000Z"
 }
 ```
@@ -312,7 +323,7 @@ You can also set `auto_accept_orders` via **PATCH /kitchens/:id** on your own ki
 
 ## Success Response (200 OK)
 
-Returns the full kitchen object (same shape as **Get Kitchen By ID**), including `auto_accept_orders`.
+Returns the full kitchen object (same shape as **Get Kitchen By ID**), including `auto_accept_orders` and **`is_veg`**.
 
 ---
 

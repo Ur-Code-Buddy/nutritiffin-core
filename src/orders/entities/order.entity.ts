@@ -59,6 +59,10 @@ export class Order {
   @Column({ type: 'date' })
   scheduled_for: string; // YYYY-MM-DD
 
+  /** Free-text instructions from the client for the kitchen (customization, allergies, spice level, etc.). */
+  @Column({ type: 'text', nullable: true })
+  notes: string | null;
+
   // Razorpay payment metadata (only set when order is created via `/payments/*`)
   @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
   paymentStatus: PaymentStatus;

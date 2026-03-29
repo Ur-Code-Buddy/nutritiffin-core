@@ -14,6 +14,7 @@ export class ResponseMapper {
     dto.id = order.id;
     dto.status = order.status;
     dto.scheduled_for = order.scheduled_for;
+    dto.notes = order.notes ?? null;
     dto.created_at = order.created_at;
     dto.total_price = Number(order.total_price);
     dto.platform_fees = Number(order.platform_fees);
@@ -41,6 +42,7 @@ export class ResponseMapper {
       const kitchenDto = new KitchenSummaryDTO();
       kitchenDto.id = order.kitchen.id;
       kitchenDto.name = order.kitchen.name;
+      kitchenDto.is_veg = Boolean(order.kitchen.is_veg);
       // Handle potential nulls in details
       if (order.kitchen.details) {
         kitchenDto.phone = order.kitchen.details.phone;

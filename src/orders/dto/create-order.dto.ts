@@ -6,8 +6,10 @@ import {
   IsInt,
   IsDateString,
   Min,
+  IsOptional,
+  MaxLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 class CreateOrderItemDto {
   @IsString()
@@ -31,6 +33,17 @@ export class CreateOrderDto {
   @IsDateString()
   @IsNotEmpty()
   scheduled_for: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== 'string') return value;
+    const t = value.trim();
+    return t.length === 0 ? undefined : t;
+  })
+  notes?: string;
 
   @IsArray()
   @ValidateNested({ each: true })

@@ -49,6 +49,24 @@ export class UsersService {
     return this.usersRepository.findOneBy({ username });
   }
 
+  /**
+   * First free username: `base` if available, else `base1`, `base2`, …
+   * Pass `baseTaken` when the caller already looked up `base` to skip an extra query.
+   */
+  async suggestAvailableUsername(
+    base: string,
+    baseTaken: boolean,
+  ): Promise<string> {
+    const maxSuffix = 10_000;
+    if (!baseTaken) return base;
+    for (let n = 1; n <= maxSuffix; n++) {
+      const candidate = `${base}${n}`;
+      const taken = await this.findOneByUsername(candidate);
+      if (!taken) return candidate;
+    }
+    return `${base}${Date.now()}`;
+  }
+
   async findOneByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOneBy({ email });
   }

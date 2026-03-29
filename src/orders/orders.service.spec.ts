@@ -176,6 +176,7 @@ describe('OrdersService', () => {
         delivery_fees: 20,
         kitchen_fees: 3, // 15% of 20 = 3
         tax_fees: 1, // 5% of 20 = 1
+        notes: null,
       }),
     );
 
@@ -185,6 +186,61 @@ describe('OrdersService', () => {
       'New Order Received!',
       expect.any(String),
       expect.objectContaining({ orderId: 'order-1' }),
+    );
+    jest.useRealTimers();
+  });
+
+  it('should persist client notes and mention them in the kitchen push', async () => {
+    jest.useFakeTimers({
+      now: new Date(Date.UTC(2026, 2, 20, 12, 0, 0)),
+    });
+    const foodItem = {
+      id: 'item-1',
+      price: 10,
+      active: true,
+      max_daily_orders: 100,
+      availability: [],
+    };
+    const createDto = {
+      kitchen_id: 'kitchen-1',
+      scheduled_for: '2026-03-21',
+      notes: 'Extra mild, dairy-free',
+      items: [{ food_item_id: 'item-1', quantity: 1 }],
+    };
+
+    const mockOrdersRepo = module.get(getRepositoryToken(Order));
+    const queryRunner = mockOrdersRepo.manager.connection.createQueryRunner();
+    queryRunner.manager.findOne.mockImplementation((entity: any) => {
+      if (entity && entity.name === 'FoodItem')
+        return Promise.resolve(foodItem);
+      if (entity && entity.name === 'Kitchen')
+        return Promise.resolve({ id: 'kitchen-1', owner_id: 'owner-1' });
+      return Promise.resolve(null);
+    });
+
+    const mockUsersService = module.get<UsersService>(UsersService);
+    const mockNotificationsService =
+      module.get<NotificationsService>(NotificationsService);
+    jest.spyOn(mockUsersService, 'findOneById').mockResolvedValue({
+      id: 'owner-1',
+      fcm_token: 'valid_fcm_token',
+    } as any);
+    jest
+      .spyOn(mockNotificationsService, 'sendPushNotification')
+      .mockResolvedValue(undefined);
+
+    await service.create('client-1', createDto as any);
+
+    expect(queryRunner.manager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notes: 'Extra mild, dairy-free',
+      }),
+    );
+    expect(mockNotificationsService.sendPushNotification).toHaveBeenCalledWith(
+      'valid_fcm_token',
+      'New Order Received!',
+      expect.stringContaining('preparation notes'),
+      expect.objectContaining({ orderId: 'order-1', hasNotes: '1' }),
     );
     jest.useRealTimers();
   });

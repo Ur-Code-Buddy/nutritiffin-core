@@ -60,6 +60,10 @@ export class Kitchen {
   @Column({ default: false })
   auto_accept_orders: boolean;
 
+  /** true = veg-only kitchen tag; false = non-veg. */
+  @Column({ default: false })
+  is_veg: boolean;
+
   @Column({ nullable: true })
   image_url: string;
 

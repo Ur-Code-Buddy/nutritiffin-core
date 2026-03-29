@@ -29,6 +29,9 @@ export class KitchenSummaryDTO {
 
   @Expose()
   address: string;
+
+  @Expose()
+  is_veg: boolean;
 }
 
 export class OrderItemDTO {
@@ -57,6 +60,10 @@ export class BaseOrderViewDTO {
 
   @Expose()
   scheduled_for: string;
+
+  /** Instructions for the kitchen from the client; null if none. */
+  @Expose()
+  notes: string | null;
 
   @Expose()
   created_at: Date;

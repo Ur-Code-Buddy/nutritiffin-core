@@ -54,6 +54,7 @@ Retrieves an interactive list of unassigned orders that are marked either `ACCEP
     "kitchen": {
       "id": "c282d569-e3a9-4820-ad35-d4093a8b96d8",
       "name": "Arjuns Kitchen",
+      "is_veg": true,
       "details": {
         "address": "123 MG Road",
         "phone": "9876543210"
@@ -82,7 +83,8 @@ Retrieves a detailed list of all orders exclusively assigned to the authenticate
     "total_price": "280.00",
     "kitchen": {
       "id": "c282d569-e3a9-4820-ad35-d4093a8b96d8",
-      "name": "Arjuns Kitchen"
+      "name": "Arjuns Kitchen",
+      "is_veg": true
     },
     "client": {
       "id": "8f6fdea3-5971-4030-aa92-5d5448d981d0",
@@ -185,7 +187,8 @@ Used when the driver opens up the specific delivery card to navigate routes nati
       "id": "c282d569-e3a9-4820-ad35-d4093a8b96d8",
       "name": "Arjuns Kitchen",
       "phone": "9876543210",
-      "address": "123 MG Road"
+      "address": "123 MG Road",
+      "is_veg": true
   },
   "client": {
       "id": "8f6fdea3-5971-4030-aa92-5d5448d981d0",

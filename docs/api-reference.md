@@ -501,8 +501,12 @@ Creates a new kitchen profile for the authenticated user.
 | `longitude`       | number  | No       | Pickup location (WGS84).                              |
 | `is_active`       | boolean | No       | Whether the kitchen is active (default: true).        |
 | `is_menu_visible` | boolean | No       | Whether the menu is visible to users (default: true). |
+| `is_veg`          | boolean | No       | Kitchen tag: **`true`** = veg, **`false`** = non-veg (default: **`false`** if omitted). |
 | `auto_accept_orders` | boolean | No    | If `true`, new orders for this kitchen are persisted as **ACCEPTED** (see [Orders](#orders-orders)). Default `false`. |
 
+**Responses** for **POST** `/kitchens`, **GET** `/kitchens`, **GET** `/kitchens/:id`, **PATCH** `/kitchens/:id`, and **PATCH** `/kitchens/me/auto-accept-orders` include the full kitchen row, including **`is_veg`**.
+
+**Existing databases:** If you do not rely on TypeORM **`synchronize`**, run **`migrations/20260329120000_add_kitchen_is_veg.sql`** once to add **`is_veg`** to **`kitchens`**.
 
 ### Get Kitchen Credits
 
@@ -515,13 +519,13 @@ Retrieves the current available credit balance for the authenticated kitchen own
 
 **GET** `/kitchens`
 
-Retrieves a list of all active kitchens.
+Retrieves a list of all active kitchens. Each kitchen includes **`is_veg`**.
 
 ### Get Kitchen by ID
 
 **GET** `/kitchens/:id`
 
-Retrieves details of a specific kitchen.
+Retrieves details of a specific kitchen, including **`is_veg`**.
 
 ### Update Kitchen
 
@@ -745,7 +749,7 @@ If the target kitchen has **`auto_accept_orders: true`**, the saved order is **`
 **GET** `/orders`
 **Role Required:** Authenticated User
 
-Retrieves all orders for the authenticated user (Client or Kitchen Owner) with role-specific details.
+Retrieves all orders for the authenticated user (Client or Kitchen Owner) with role-specific details. For **clients**, each order’s **`kitchen`** includes **`is_veg`**. For **kitchen owners**, the same **`kitchen`** shape applies, and the payload also includes **`client`** and **`kitchen_fees`**.
 
 ### Get Order by ID
 
@@ -766,7 +770,8 @@ Retrieves details of a specific order.
     "id": "kitchen-id",
     "name": "Kitchen Name",
     "phone": "...",
-    "address": "..."
+    "address": "...",
+    "is_veg": false
   },
   "items": [
     {
@@ -1219,14 +1224,14 @@ Payments are **prepaid**; drivers do not accrue a cash-collection balance. Kitch
 **GET** `/deliveries/available`
 **Role Required:** `DELIVERY_DRIVER`
 
-Retrieves a list of orders that are `ACCEPTED` or `READY` for pickup.
+Retrieves a list of orders that are `ACCEPTED` or `READY` for pickup. Each order’s **`kitchen`** includes **`id`**, **`name`**, **`is_veg`**, and **`details`** (address, phone).
 
 ### Get My Deliveries
 
 **GET** `/deliveries/my-orders`
 **Role Required:** `DELIVERY_DRIVER`
 
-Retrieves a list of orders assigned to the authenticated driver.
+Retrieves a list of orders assigned to the authenticated driver. Each order’s **`kitchen`** relation includes the full kitchen columns (including **`is_veg`**).
 
 ### Accept Delivery
 
@@ -1311,12 +1316,20 @@ Retrieves full order details. Depending on the user's role, the shape of the res
 
 **Response for Delivery Driver:**
 
+Uses the same order view as **`GET /orders/:id`** for drivers: nested **`kitchen`** includes **`id`**, **`name`**, **`phone`**, **`address`**, and **`is_veg`** (veg / non-veg tag).
+
 ```json
 {
   "id": "order-uuid",
   "status": "OUT_FOR_DELIVERY",
   "total_price": 250.00,
-  "kitchen": { ... },
+  "kitchen": {
+    "id": "kitchen-id",
+    "name": "Kitchen Name",
+    "phone": "...",
+    "address": "...",
+    "is_veg": false
+  },
   "client": {
      "name": "Client Name",
      "phone_number": "...",
@@ -1332,7 +1345,7 @@ Retrieves full order details. Depending on the user's role, the shape of the res
 {
   "id": "del_001",
   "user": "john_doe",
-  "kitchen": "Main Kitchen",
+  "kitchen": { "name": "Main Kitchen", "is_veg": false },
   "status": "IN_TRANSIT",
   "items": ["Paneer Tiffin x1", "Extra Roti x2"],
   "driver": "Ravi",

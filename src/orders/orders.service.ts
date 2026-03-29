@@ -248,6 +248,7 @@ export class OrdersService {
         client_id: clientId,
         kitchen_id: dto.kitchen_id,
         scheduled_for: dto.scheduled_for,
+        notes: dto.notes ?? null,
         status: autoAccept ? OrderStatus.ACCEPTED : OrderStatus.PENDING,
         ...(autoAccept ? { accepted_at: new Date() } : {}),
         items: quote.orderItems,
@@ -271,13 +272,16 @@ export class OrdersService {
           kitchenRow.owner_id,
         );
         if (kitchenOwner?.fcm_token) {
+          const noteHint = dto.notes
+            ? ' The customer added preparation notes — open the order for details.'
+            : '';
           this.notificationsService.sendPushNotification(
             kitchenOwner.fcm_token,
             'New Order Received!',
             autoAccept
-              ? 'A new order was placed and automatically accepted.'
-              : 'A new order was placed. Please check your dashboard.',
-            { orderId: savedOrder.id },
+              ? `A new order was placed and automatically accepted.${noteHint}`
+              : `A new order was placed. Please check your dashboard.${noteHint}`,
+            { orderId: savedOrder.id, hasNotes: dto.notes ? '1' : '0' },
           );
         }
       } catch (notifErr) {

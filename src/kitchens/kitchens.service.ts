@@ -26,6 +26,7 @@ export class KitchensService {
     const { latitude, longitude, ...rest } = createKitchenDto;
     const kitchen = this.kitchensRepository.create({
       ...rest,
+      is_veg: createKitchenDto.is_veg ?? false,
       ...(latitude !== undefined ? { latitude: String(latitude) } : {}),
       ...(longitude !== undefined ? { longitude: String(longitude) } : {}),
     });

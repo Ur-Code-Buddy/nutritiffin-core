@@ -289,11 +289,14 @@ Returns only:
       "tuesday": { "open": "09:00", "close": "21:00" }
     },
     "image_url": "https://example.com/kitchen.jpg",
+    "is_veg": true,
     "created_at": "2026-02-15T06:11:11.126Z",
     "updated_at": "2026-02-15T06:31:08.132Z"
   }
 ]
 ```
+
+Each kitchen includes **`is_veg`**: **`true`** = veg tag, **`false`** = non-veg.
 
 ---
 
@@ -465,7 +468,8 @@ Returns all orders created by authenticated client.
       "id": "c282d569-e3a9-4820-ad35-d4093a8b96d8",
       "name": "Arjuns Kitchen",
       "phone": "7738087085",
-      "address": "123"
+      "address": "123",
+      "is_veg": true
     },
     "delivery_driver": null
   }
@@ -515,7 +519,8 @@ Example:
     "id": "c282d569-e3a9-4820-ad35-d4093a8b96d8",
     "name": "Arjuns Kitchen",
     "phone": "7738087085",
-    "address": "123"
+    "address": "123",
+    "is_veg": true
   },
   "delivery_driver": {
     "id": "driver-uuid-123",

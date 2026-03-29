@@ -49,6 +49,7 @@ export class DeliveriesService {
         kitchen: {
           id: true,
           name: true,
+          is_veg: true,
           details: {
             address: true,
             phone: true,

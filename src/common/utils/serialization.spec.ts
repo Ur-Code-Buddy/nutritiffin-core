@@ -52,8 +52,10 @@ describe('Serialization Unit Test', () => {
     const kitchen = new Kitchen();
     kitchen.id = 'kitchen-1';
     kitchen.name = 'Test Kitchen';
+    kitchen.is_veg = true;
     kitchen.details = { address: 'K St', phone: '999', email: 'k@example.com' };
     order.kitchen = kitchen;
+    order.notes = 'Less oil, no onion';
 
     const dto = ResponseMapper.toClientOrderView(order);
     const plainDto = instanceToPlain(dto);
@@ -61,6 +63,8 @@ describe('Serialization Unit Test', () => {
     expect(plainDto.id).toBe('order-1');
     expect(plainDto.total_price).toBe(100.5);
     expect(plainDto.kitchen.name).toBe('Test Kitchen');
+    expect(plainDto.kitchen.is_veg).toBe(true);
+    expect(plainDto.notes).toBe('Less oil, no onion');
     expect(plainDto.kitchen.email).toBeUndefined(); // Via DTO definition which doesn't have email
 
     // Client view should not have client details in root

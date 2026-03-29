@@ -37,10 +37,12 @@ This document outlines how to integrate with the NutriTiffin backend, focusing o
   - Flags:
     - `is_active`: Set to `true` to make kitchen visible to public. Set `false` to hide it (e.g., closed for holidays).
     - `is_menu_visible`: Set to `true` to show menu. `false` hides menu but keeps kitchen profile visible.
+    - `is_veg` (optional boolean): **`true`** = veg kitchen tag, **`false`** or omitted = non-veg (default).
   - Image: See "Image Upload" section below.
 
 - Update Kitchen: PATCH /kitchens/:id
   - Send only fields that need changing.
+  - Optional `is_veg` to change the veg / non-veg tag.
   - Optional `auto_accept_orders` (boolean): when `true`, new orders for this kitchen are saved as **ACCEPTED** without the owner tapping accept (see below).
 
 - Auto-accept toggle: PATCH /kitchens/me/auto-accept-orders
@@ -79,10 +81,12 @@ Step-by-Step Implementation:
 
 - List Kitchens: GET /kitchens
   - Returns ONLY active kitchens (`is_active: true`).
+  - Each kitchen includes **`is_veg`** for veg / non-veg badges in the UI.
   - Use this to display the main feed.
 
 - View Kitchen: GET /kitchens/:id
   - Shows details. Check `is_menu_visible` before showing the menu list.
+  - Includes **`is_veg`** (same semantics as create/update).
 
 5. Orders
 
@@ -96,6 +100,8 @@ Step-by-Step Implementation:
 **Legacy (immediate create, no Razorpay):**
 
 - `POST /orders` — Same body; order is persisted immediately (`paymentStatus` typically `PENDING`, no Razorpay ids).
+
+**Order payloads:** **`GET /orders`** and **`GET /orders/:id`** include nested **`kitchen`** with **`is_veg`** (alongside `id`, `name`, `phone`, `address`).
 
 **Tracking:**
 

@@ -94,12 +94,18 @@ export class DeliveriesController {
       return {
         id: order.id,
         user: order.client?.username,
-        kitchen: order.kitchen?.name,
+        kitchen: order.kitchen
+          ? {
+              name: order.kitchen.name,
+              is_veg: Boolean(order.kitchen.is_veg),
+            }
+          : null,
         status: order.status,
         items: order.items?.map((i) => `${i.food_item?.name} x${i.quantity}`),
         driver: order.delivery_driver?.name || null,
         destination: order.client?.address,
         estimated_delivery: order.scheduled_for,
+        notes: order.notes ?? null,
         created_at: order.created_at,
       };
     }
