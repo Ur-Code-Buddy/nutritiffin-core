@@ -1139,12 +1139,7 @@ Aggregated counts for marketing or landing pages. **Not real-time:** values are 
 
 Delivery completion uses an **in-app handoff code**: the **client** reads **`GET /orders/:id/delivery-handoff-otp`** (4 digits) and tells the driver; the driver submits that code in **`PATCH /deliveries/:id/finish`**. Codes live in **Redis** (see **Get delivery handoff OTP** under [Orders](#orders-orders)).
 
-### Get Driver Credits
-
-**GET** `/deliveries/credits`
-**Role Required:** `DELIVERY_DRIVER`
-
-Retrieves the current available credit balance for the authenticated delivery driver.
+Payments are **prepaid**; drivers do not accrue a cash-collection balance. Kitchen owners still receive their **kitchen payout** on successful finish (see **Finish Delivery** below).
 
 ### Get Available Deliveries
 
@@ -1212,7 +1207,7 @@ Stores the driver’s latest position in **Redis** for **`GET /orders/:id/tracki
 **PATCH** `/deliveries/:id/finish`
 **Role Required:** `DELIVERY_DRIVER`
 
-Completes delivery only after the **correct handoff code** from the customer’s app. Updates status to `DELIVERED`, records payouts/transactions as before, and **consumes** the code (single use).
+Completes delivery only after the **correct handoff code** from the customer’s app. Updates status to `DELIVERED`, credits the **kitchen owner** (payout transaction), and **consumes** the code (single use). The delivery driver is **not** credited (no COD wallet).
 
 **Request body (JSON):**
 

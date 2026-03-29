@@ -247,11 +247,6 @@ export class DeliveriesService {
         where: { id: txOrder.client_id },
       });
 
-      const driver = await queryRunner.manager.findOne(User, {
-        where: { id: driverId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
       const kitchenOwnerId = kitchen?.owner_id;
       const kitchenOwner = kitchenOwnerId
         ? await queryRunner.manager.findOne(User, {
@@ -264,26 +259,7 @@ export class DeliveriesService {
       txOrder.delivered_at = new Date();
       await queryRunner.manager.save(txOrder);
 
-      // 1. Driver wallet: running total of cash collected from customers (order total_price includes
-      //    food, platform, delivery, tax — delivery_fees is not tracked separately for the driver).
-      if (driver) {
-        driver.credits = Number(driver.credits) + Number(txOrder.total_price);
-        await queryRunner.manager.save(driver);
-
-        const collectionTxn = queryRunner.manager.create(Transaction, {
-          short_id: generateShortId(),
-          from_user_id: null,
-          to_user_id: driver.id,
-          amount: Number(txOrder.total_price),
-          type: TransactionType.CREDIT,
-          source: TransactionSource.DELIVERY,
-          description: `Cash collected for order ID ${id.substring(0, 8)}`,
-          reference_id: id,
-        });
-        await queryRunner.manager.save(collectionTxn);
-      }
-
-      // 2. Kitchen owner gets item cost minus kitchen commission
+      // Kitchen owner payout (prepaid orders; no driver cash-on-delivery wallet)
       if (kitchenOwner) {
         const itemTotal =
           Number(txOrder.total_price) -

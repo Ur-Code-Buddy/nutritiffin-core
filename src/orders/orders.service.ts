@@ -390,7 +390,7 @@ export class OrdersService {
       let body = '';
       if (status === OrderStatus.ACCEPTED) {
         title = 'Order Accepted!';
-        body = 'Your order has been accepted and is being prepared.';
+        body = 'Your order has been accepted.';
       } else if (status === OrderStatus.READY) {
         title = 'Order Ready for Pickup!';
         body = 'Your order is ready and waiting for a delivery driver.';

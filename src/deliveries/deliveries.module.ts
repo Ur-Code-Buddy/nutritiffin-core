@@ -5,14 +5,12 @@ import { DeliveryHandoffOtpService } from './delivery-handoff-otp.service';
 import { DeliveriesController } from './deliveries.controller';
 import { Order } from '../orders/entities/order.entity';
 import { User } from '../users/entities/user.entity';
-import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { DeliveryTrackingModule } from '../delivery-tracking/delivery-tracking.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order, User]),
-    UsersModule,
     NotificationsModule,
     DeliveryTrackingModule,
   ],

@@ -19,7 +19,7 @@ As a Delivery Partner, the standard lifecycle on an order flows like this:
 2. **Accept:** Driver binds to an order via `PATCH /deliveries/:id/accept`. Order stays at `ACCEPTED` or `READY`.
 3. **Pick Up:** Driver arrives at the Kitchen, sees the order is `READY`. Driver triggers `PATCH /deliveries/:id/pick-up`. Status becomes `PICKED_UP`. 
 4. **Out for Delivery:** Driver begins driving to the client via `PATCH /deliveries/:id/out-for-delivery`. Status becomes `OUT_FOR_DELIVERY`. The backend stores a **4-digit** handoff code in Redis for the customer’s app.
-5. **Finish Delivery:** At the door, the **customer** shows the **4-digit** code from **`GET /orders/:id/delivery-handoff-otp`** in their app. The driver submits it in the body of **`PATCH /deliveries/:id/finish`** as `{ "otp": "1234" }`. Status becomes `DELIVERED`, and the driver is credited (`GET /deliveries/credits`).
+5. **Finish Delivery:** At the door, the **customer** shows the **4-digit** code from **`GET /orders/:id/delivery-handoff-otp`** in their app. The driver submits it in the body of **`PATCH /deliveries/:id/finish`** as `{ "otp": "1234" }`. Status becomes `DELIVERED`. (Orders are prepaid; there is no driver cash-collection balance.)
 
 ---
 
@@ -35,23 +35,7 @@ The same driver can read a routing snapshot (and the customer reads a similar sn
 
 ## Endpoints
 
-### 1. Get Driver Credits
-
-**GET** `/deliveries/credits`
-**Role Required:** `DELIVERY_DRIVER`
-
-Retrieves the current available credit account balance built from delivery efforts natively.
-
-**Success Response (200 OK):**
-```json
-{
-  "credits": 250.00
-}
-```
-
----
-
-### 2. Get Available Deliveries
+### 1. Get Available Deliveries
 
 **GET** `/deliveries/available`
 **Role Required:** `DELIVERY_DRIVER`
@@ -81,7 +65,7 @@ Retrieves an interactive list of unassigned orders that are marked either `ACCEP
 
 ---
 
-### 3. Get My Deliveries
+### 2. Get My Deliveries
 
 **GET** `/deliveries/my-orders`
 **Role Required:** `DELIVERY_DRIVER`
@@ -110,7 +94,7 @@ Retrieves a detailed list of all orders exclusively assigned to the authenticate
 
 ---
 
-### 4. Accept Delivery
+### 3. Accept Delivery
 
 **PATCH** `/deliveries/:id/accept`
 **Role Required:** `DELIVERY_DRIVER`
@@ -129,7 +113,7 @@ Assigns the selected available order to the specific driver account permanently.
 
 ---
 
-### 5. Pick Up Delivery
+### 4. Pick Up Delivery
 
 **PATCH** `/deliveries/:id/pick-up`
 **Role Required:** `DELIVERY_DRIVER`
@@ -147,7 +131,7 @@ Registers that the driver has arrived at the given kitchen and retrieved the ite
 
 ---
 
-### 6. Out For Delivery
+### 5. Out For Delivery
 
 **PATCH** `/deliveries/:id/out-for-delivery`
 **Role Required:** `DELIVERY_DRIVER`
@@ -164,7 +148,7 @@ Transitions the state representing transit logic towards the client drop-off loc
 
 ---
 
-### 7. Finish Delivery
+### 6. Finish Delivery
 
 **PATCH** `/deliveries/:id/finish`
 **Role Required:** `DELIVERY_DRIVER`
@@ -184,7 +168,7 @@ Permanently resolves the task, records `delivered_at` timing natively tracking t
 
 ---
 
-### 8. Get Delivery Summary / Order Details
+### 7. Get Delivery Summary / Order Details
 
 **GET** `/deliveries/:id`
 **Role Required:** `DELIVERY_DRIVER`
