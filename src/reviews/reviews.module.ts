@@ -5,10 +5,9 @@ import { ReviewsController } from './reviews.controller';
 import { Review } from './entities/review.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
 import { Order } from '../orders/entities/order.entity';
-import { FoodItem } from '../food-items/entities/food-item.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Review, OrderItem, Order, FoodItem])],
+  imports: [TypeOrmModule.forFeature([Review, OrderItem, Order])],
   controllers: [ReviewsController],
   providers: [ReviewsService],
   exports: [ReviewsService],

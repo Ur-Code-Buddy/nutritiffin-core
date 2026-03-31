@@ -46,8 +46,6 @@ Each kitchen belongs to exactly one owner.
 | is_menu_visible   | boolean  | Whether menu is visible to clients |
 | auto_accept_orders | boolean | When `true`, new orders are created as **ACCEPTED** (no manual accept/reject). Default `false`. |
 | is_veg            | boolean  | Kitchen tag: `true` = veg, `false` = non-veg. Default **`false`** if omitted on create. |
-| positive_count    | number   | Number of thumbs up / positive reviews |
-| negative_count    | number   | Number of thumbs down / negative reviews |
 | availability_days | string[] | Days the menu is available         |
 | created_at        | datetime | Creation timestamp                 |
 | updated_at        | datetime | Last update timestamp              |

@@ -101,8 +101,12 @@ async function main() {
 
         // Review
         console.log('\n--- Client Review ---');
-        await axios.post(`${BASE_URL}/reviews`, { order_item_id: orderItemId, is_positive: true }, { headers: { Authorization: `Bearer ${cToken}` } });
-        console.log('Review Posted');
+        await axios.post(
+            `${BASE_URL}/orders/${orderId}/items/${orderItemId}/rating`,
+            { stars: 5 },
+            { headers: { Authorization: `Bearer ${cToken}` } },
+        );
+        console.log('Review Posted (5 stars)');
 
         console.log('\n✨ ALL WORKFLOW ENDPOINTS TESTED SUCCESSFULLY! ✨');
 

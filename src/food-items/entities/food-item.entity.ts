@@ -48,12 +48,6 @@ export class FoodItem {
   @Column({ default: false })
   is_veg: boolean;
 
-  @Column({ default: 0 })
-  positive_count: number;
-
-  @Column({ default: 0 })
-  negative_count: number;
-
   @Column('simple-array', { nullable: true })
   availability_days: string[]; // e.g. ["monday", "wednesday"]
 

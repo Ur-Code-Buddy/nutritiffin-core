@@ -11,6 +11,8 @@ import {
   ForbiddenException,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { ReviewsService } from '../reviews/reviews.service';
+import { OrderItemRatingDto } from './dto/order-item-rating.dto';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto'; // Not really used for general updates, maybe just status
@@ -33,6 +35,7 @@ export class OrdersController {
     private readonly kitchenService: KitchensService,
     private readonly deliveryHandoffOtpService: DeliveryHandoffOtpService,
     private readonly deliveryTrackingService: DeliveryTrackingService,
+    private readonly reviewsService: ReviewsService,
   ) {}
 
   @Post()
@@ -81,6 +84,23 @@ export class OrdersController {
     });
   }
 
+  @Post(':orderId/items/:itemId/rating')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CLIENT)
+  rateOrderItem(
+    @Request() req: any,
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
+    @Body() body: OrderItemRatingDto,
+  ) {
+    return this.reviewsService.upsertOrderItemRating(
+      req.user.userId,
+      orderId,
+      itemId,
+      body.stars,
+    );
+  }
+
   @Get()
   @UseGuards(JwtAuthGuard)
   async findAll(@Request() req: any) {
@@ -91,7 +111,13 @@ export class OrdersController {
     if (req.user.role === UserRole.KITCHEN_OWNER) {
       return orders.map((order) => ResponseMapper.toOwnerOrderView(order));
     }
-    return orders.map((order) => ResponseMapper.toClientOrderView(order));
+    const starsMap = await this.reviewsService.getItemStarsMapForOrders(
+      req.user.userId,
+      orders.map((o) => o.id),
+    );
+    return orders.map((order) =>
+      ResponseMapper.toClientOrderView(order, starsMap),
+    );
   }
 
   @Get(':id')
@@ -108,7 +134,11 @@ export class OrdersController {
       if (order.client_id !== userId) {
         throw new ForbiddenException('You can only view your own orders');
       }
-      return ResponseMapper.toClientOrderView(order);
+      const starsMap = await this.reviewsService.getItemStarsMapForOrders(
+        userId,
+        [order.id],
+      );
+      return ResponseMapper.toClientOrderView(order, starsMap);
     }
 
     if (role === UserRole.KITCHEN_OWNER) {

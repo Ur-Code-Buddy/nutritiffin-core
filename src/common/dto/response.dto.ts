@@ -51,6 +51,33 @@ export class OrderItemDTO {
   snapshot_price: number;
 }
 
+/** Client order line: includes line id and optional star rating for that line. */
+export class ClientOrderItemDTO {
+  @Expose()
+  order_item_id: string;
+
+  @Expose()
+  food_item_id: string;
+
+  @Expose()
+  name: string;
+
+  @Expose()
+  image_url: string;
+
+  @Expose()
+  quantity: number;
+
+  @Expose()
+  snapshot_price: number;
+
+  @Expose()
+  is_rated: boolean;
+
+  @Expose()
+  rating: { stars: number } | null;
+}
+
 export class BaseOrderViewDTO {
   @Expose()
   id: string;
@@ -94,7 +121,9 @@ export class BaseOrderViewDTO {
 }
 
 export class ClientOrderViewDTO extends BaseOrderViewDTO {
-  // Client specific fields if any (currently matches Base)
+  @Expose()
+  @Type(() => ClientOrderItemDTO)
+  declare items: ClientOrderItemDTO[];
 }
 
 export class OwnerOrderViewDTO extends BaseOrderViewDTO {

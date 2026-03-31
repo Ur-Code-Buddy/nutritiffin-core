@@ -5,6 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
+  UpdateDateColumn,
   Unique,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
@@ -54,9 +55,13 @@ export class Review {
   @JoinColumn({ name: 'order_item_id' })
   order_item: OrderItem;
 
-  @Column()
-  is_positive: boolean;
+  /** Integer 1–5 (enforced in service / DTO). */
+  @Column({ type: 'smallint' })
+  stars: number;
 
   @CreateDateColumn()
   created_at: Date;
+
+  @UpdateDateColumn()
+  updated_at: Date;
 }

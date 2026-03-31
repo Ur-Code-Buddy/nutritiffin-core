@@ -757,7 +757,26 @@ If the target kitchen has **`auto_accept_orders: true`**, the saved order is **`
 **GET** `/orders`
 **Role Required:** Authenticated User
 
-Retrieves all orders for the authenticated user (Client or Kitchen Owner) with role-specific details. For **clients**, each order’s **`kitchen`** includes **`is_veg`**. For **kitchen owners**, the same **`kitchen`** shape applies, and the payload also includes **`client`** and **`kitchen_fees`**. Every mapped order includes **`notes`** (`string` or `null`) when present at creation.
+Retrieves all orders for the authenticated user (Client or Kitchen Owner) with role-specific details. For **clients**, each order’s **`kitchen`** includes **`is_veg`**, and each **line item** includes per-line rating state (see below). For **kitchen owners**, the same **`kitchen`** shape applies, and the payload also includes **`client`** and **`kitchen_fees`**; line items omit rating fields. Every mapped order includes **`notes`** (`string` or `null`) when present at creation.
+
+### Rate or update rating for an order line (client)
+
+**POST** `/orders/:orderId/items/:itemId/rating`
+**Role Required:** `CLIENT`
+
+**`:itemId`** is the **`order_item_id`** (the line on that order), not the catalog `food_item_id`.
+
+Creates or updates a **1–5 star** integer rating for that line. The order must belong to the authenticated client and be **`DELIVERED`**. There is **no time limit** after delivery. Each **(client, order_item)** pair has at most one review row; resubmitting **updates** the stars.
+
+**Request body (JSON):**
+
+
+| Field    | Type   | Required | Description        |
+| -------- | ------ | -------- | ------------------ |
+| `stars`  | number | **Yes**  | Integer **1–5**.   |
+
+
+**Response:** Saved review entity, including `stars`, `order_item_id`, `food_item_id`, `created_at`, `updated_at`.
 
 ### Get Order by ID
 
@@ -766,7 +785,7 @@ Retrieves all orders for the authenticated user (Client or Kitchen Owner) with r
 
 Retrieves details of a specific order.
 
-**Response:**
+**Response (client — each item includes rating state):**
 
 ```json
 {
@@ -784,11 +803,14 @@ Retrieves details of a specific order.
   },
   "items": [
     {
+      "order_item_id": "order-line-uuid",
       "food_item_id": "item-id",
       "name": "Item Name",
       "image_url": "http://...",
       "quantity": 2,
-      "snapshot_price": 100.0
+      "snapshot_price": 100.0,
+      "is_rated": true,
+      "rating": { "stars": 4 }
     }
   ],
   "delivery_driver": {
@@ -807,6 +829,8 @@ Retrieves details of a specific order.
 ```
 
 When a **paid** order is **rejected** (kitchen reject or auto timeout on **PENDING** orders), the backend creates a **full Razorpay refund**, sets `refund_status` to `PENDING`, and fills `refund_expected_by` (7 business days after initiation, UTC). The client receives a push notification with refund messaging. Unpaid (legacy) orders get `refund_status` `NOT_APPLICABLE`. Orders created under **auto-accept** never enter **PENDING**, so they are not subject to that timeout reject.
+
+**Client line items:** `is_rated` is **`false`** and **`rating`** is **`null`** until the client submits stars for that `order_item_id`. Kitchen-owner and driver mapped views keep the slimmer item shape (no `order_item_id` / `is_rated` / `rating`).
 
 ### Get delivery handoff OTP (in-app)
 
@@ -1369,40 +1393,50 @@ Uses the same order view as **`GET /orders/:id`** for drivers: nested **`kitchen
 
 ---
 
-## Reviews (`/reviews`)
+## Restaurants (`/restaurants`)
 
-Clients can add reviews for individual `order_items` that belong to an order that has been `DELIVERED` within the last 24 hours. A review is marked as either a thumbs up (`positive_count`) or thumbs down (`negative_count`).
+**Restaurant** IDs in this API are the same as **kitchen** IDs (`kitchens.id`). There is **no** stored aggregate rating on the kitchen row: averages are computed from **`reviews.stars`** joined to **`food_items`** for that kitchen.
 
-### Add a Review
+### Restaurant stats (public)
 
-**POST** `/reviews`
-**Role Required:** `CLIENT`
+**GET** `/restaurants/:id/stats`
 
-Creates a review for a specific ordered item.
-
-**Request Body:**
-
-
-| Field           | Type    | Required | Description                                                    |
-| --------------- | ------- | -------- | -------------------------------------------------------------- |
-| `order_item_id` | string  | **Yes**  | ID of the specific order item being reviewed.                  |
-| `is_positive`   | boolean | **Yes**  | `true` for positive (upvote), `false` for negative (downvote). |
-
+Returns aggregated metrics for the kitchen/restaurant. **No auth.** Rate limited like other public stats (**20/min**).
 
 **Response:**
 
 ```json
 {
-  "id": "review-uuid",
-  "client_id": "client-uuid",
-  "kitchen_id": "kitchen-uuid",
-  "food_item_id": "item-uuid",
-  "order_id": "order-uuid",
-  "order_item_id": "order-item-uuid",
-  "is_positive": true,
-  "created_at": "2026-03-05T20:10:00.000Z"
+  "total_orders": 42,
+  "total_customers": 18,
+  "average_rating": 4.25,
+  "total_ratings": 120,
+  "rating_distribution": { "1": 2, "2": 4, "3": 15, "4": 40, "5": 59 },
+  "top_items": [
+    {
+      "name": "Paneer bowl",
+      "average_rating": 4.8,
+      "total_ratings": 12
+    }
+  ]
 }
 ```
+
+
+| Field                  | Type   | Description |
+| ---------------------- | ------ | ----------- |
+| `total_orders`         | number | Count of **`DELIVERED`** orders for this kitchen. |
+| `total_customers`      | number | Distinct clients among those delivered orders. |
+| `average_rating`       | number \| null | Mean of all **`reviews.stars`** for items in this kitchen; **two decimal places**; **`null`** if no ratings. |
+| `total_ratings`        | number | Count of review rows contributing to item ratings for this kitchen. |
+| `rating_distribution`  | object | Counts of ratings by star value **`"1"`…`"5"`**. |
+| `top_items`            | array  | Up to **5** menu items with **≥ 3** ratings, ordered by average stars (desc). |
+
+---
+
+## Reviews (`/reviews`)
+
+Star ratings (**1–5**) are stored per **`order_item`** (see **`POST /orders/:orderId/items/:itemId/rating`**). Listing endpoints below return each review’s **`stars`** field.
 
 ### Get My Reviews
 

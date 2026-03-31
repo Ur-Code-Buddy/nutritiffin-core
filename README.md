@@ -70,7 +70,7 @@ High-level **capabilities** recruiters can map to “real product” scope:
 - **Deliveries** — Driver assignment, state transitions, **OTP-style handoff** between driver and customer for completion.
 - **Live tracking** — Driver location in **Redis**, **Google Routes** for ETA / polyline; throttled **map snapshot** endpoints for clients and drivers.
 - **Money in-app** — **Credit wallet** with **transactional ledger**, pessimistic locking on balance changes, admin credit/debit, readable transaction references.
-- **Social proof** — Reviews for **items** and **kitchens**, scoped listing APIs.
+- **Social proof** — **1–5 star** ratings per **order line**; public **`GET /restaurants/:id/stats`** for kitchen-level aggregates (no stored average on the kitchen row); scoped review listing APIs.
 - **Media** — Image uploads to **AWS S3** (avatars, food photos).
 - **Engagement** — **Firebase Cloud Messaging** for push when configured (e.g. new order, status changes).
 - **Operations** — Admin user/credit/maintenance controls, **public stats** with strict rate limits, health/uptime endpoints.
@@ -277,7 +277,7 @@ Authoritative request/response detail lives in **[`docs/api-reference.md`](docs/
 | **Deliveries** | Available jobs, accept, pickup, out for delivery, finish, **GPS pings** (`PATCH /deliveries/:id/location`) |
 | **Live tracking** | Customer/driver **map snapshot** (`GET /orders/:id/tracking`) — see [`docs/Maps.md`](docs/Maps.md) |
 | **Transactions** | Paginated history (user/admin) |
-| **Reviews** | Create (client), list by item/kitchen, “my reviews” |
+| **Reviews / ratings** | `POST /orders/:orderId/items/:itemId/rating` (client upsert), list by item/kitchen, “my reviews”; **`GET /restaurants/:id/stats`** (public aggregates) |
 | **Upload** | Image upload to S3 |
 | **Ops** | `GET /health`, `GET /uptime`, maintenance flag endpoints |
 

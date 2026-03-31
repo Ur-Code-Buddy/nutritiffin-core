@@ -14,6 +14,7 @@ import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { DeliveriesModule } from '../deliveries/deliveries.module';
 import { DeliveryTrackingModule } from '../delivery-tracking/delivery-tracking.module';
+import { ReviewsModule } from '../reviews/reviews.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { DeliveryTrackingModule } from '../delivery-tracking/delivery-tracking.m
     NotificationsModule,
     DeliveriesModule,
     DeliveryTrackingModule,
+    ReviewsModule,
   ],
   controllers: [OrdersController, PaymentsController],
   providers: [OrdersService, PaymentsService],

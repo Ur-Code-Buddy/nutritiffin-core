@@ -4,6 +4,7 @@ import { OrdersService } from './orders.service';
 import { KitchensService } from '../kitchens/kitchens.service';
 import { DeliveryHandoffOtpService } from '../deliveries/delivery-handoff-otp.service';
 import { DeliveryTrackingService } from '../delivery-tracking/delivery-tracking.service';
+import { ReviewsService } from '../reviews/reviews.service';
 
 describe('OrdersController', () => {
   let controller: OrdersController;
@@ -40,6 +41,13 @@ describe('OrdersController', () => {
           useValue: {
             getTrackingSnapshot: jest.fn(),
             updateDriverLocation: jest.fn(),
+          },
+        },
+        {
+          provide: ReviewsService,
+          useValue: {
+            getItemStarsMapForOrders: jest.fn().mockResolvedValue(new Map()),
+            upsertOrderItemRating: jest.fn(),
           },
         },
       ],

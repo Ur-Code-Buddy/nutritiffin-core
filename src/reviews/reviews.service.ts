@@ -2,15 +2,12 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
-  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Review } from './entities/review.entity';
-import { CreateReviewDto } from './dto/create-review.dto';
 import { OrderItem } from '../orders/entities/order-item.entity';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
-import { FoodItem } from '../food-items/entities/food-item.entity';
 
 @Injectable()
 export class ReviewsService {
@@ -21,93 +18,74 @@ export class ReviewsService {
     private orderItemRepo: Repository<OrderItem>,
     @InjectRepository(Order)
     private ordersRepo: Repository<Order>,
-    @InjectRepository(FoodItem)
-    private foodItemRepo: Repository<FoodItem>,
   ) {}
 
-  async create(clientId: string, dto: CreateReviewDto) {
-    // 1. Find the order item and its parent order
-    const orderItem = await this.orderItemRepo.findOne({
-      where: { id: dto.order_item_id },
-      relations: ['order'],
-    });
-
-    if (!orderItem) {
-      throw new NotFoundException('Order item not found');
+  /**
+   * Stars for each order line the client has rated, for the given orders (order_item_id → stars).
+   */
+  async getItemStarsMapForOrders(
+    clientId: string,
+    orderIds: string[],
+  ): Promise<Map<string, number>> {
+    const map = new Map<string, number>();
+    if (orderIds.length === 0) {
+      return map;
     }
+    const rows = await this.reviewsRepo.find({
+      where: { client_id: clientId, order_id: In(orderIds) },
+      select: ['order_item_id', 'stars'],
+    });
+    for (const r of rows) {
+      map.set(r.order_item_id, r.stars);
+    }
+    return map;
+  }
 
-    const order = orderItem.order;
-
-    // 2. Verify the order belongs to this client
+  async upsertOrderItemRating(
+    clientId: string,
+    orderId: string,
+    orderItemId: string,
+    stars: number,
+  ): Promise<Review> {
+    const order = await this.ordersRepo.findOne({ where: { id: orderId } });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
     if (order.client_id !== clientId) {
       throw new BadRequestException('This order does not belong to you');
     }
-
-    // 3. Verify the order is delivered
     if (order.status !== OrderStatus.DELIVERED) {
       throw new BadRequestException(
-        'You can only review items from delivered orders',
+        'You can only rate items from delivered orders',
       );
     }
 
-    // 4. Verify within 24-hour window after delivery
-    if (!order.delivered_at) {
-      throw new BadRequestException('Delivery time not recorded');
+    const orderItem = await this.orderItemRepo.findOne({
+      where: { id: orderItemId, order: { id: orderId } },
+      relations: ['order'],
+    });
+    if (!orderItem || orderItem.order.id !== orderId) {
+      throw new NotFoundException('Order item not found on this order');
     }
 
-    const now = new Date();
-    const deliveredAt = new Date(order.delivered_at);
-    const hoursSinceDelivery =
-      (now.getTime() - deliveredAt.getTime()) / (1000 * 60 * 60);
-
-    if (hoursSinceDelivery > 24) {
-      throw new BadRequestException(
-        'Review window has expired. You can only review within 24 hours of delivery.',
-      );
-    }
-
-    // 5. Check if already reviewed (unique constraint will also catch this, but better UX with clear message)
-    const existing = await this.reviewsRepo.findOne({
-      where: {
-        client_id: clientId,
-        order_item_id: dto.order_item_id,
-      },
+    let review = await this.reviewsRepo.findOne({
+      where: { client_id: clientId, order_item_id: orderItemId },
     });
 
-    if (existing) {
-      throw new ConflictException(
-        'You have already reviewed this item for this order',
-      );
+    if (review) {
+      review.stars = stars;
+      return this.reviewsRepo.save(review);
     }
 
-    // 6. Create the review
-    const review = this.reviewsRepo.create({
+    review = this.reviewsRepo.create({
       client_id: clientId,
       kitchen_id: order.kitchen_id,
       food_item_id: orderItem.food_item_id,
       order_id: order.id,
       order_item_id: orderItem.id,
-      is_positive: dto.is_positive,
+      stars,
     });
-
-    const savedReview = await this.reviewsRepo.save(review);
-
-    // 7. Increment the count on the food item
-    if (dto.is_positive) {
-      await this.foodItemRepo.increment(
-        { id: orderItem.food_item_id },
-        'positive_count',
-        1,
-      );
-    } else {
-      await this.foodItemRepo.increment(
-        { id: orderItem.food_item_id },
-        'negative_count',
-        1,
-      );
-    }
-
-    return savedReview;
+    return this.reviewsRepo.save(review);
   }
 
   async findByFoodItem(foodItemId: string) {

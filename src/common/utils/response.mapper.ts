@@ -6,11 +6,17 @@ import {
   KitchenSummaryDTO,
   UserSummaryDTO,
   OrderItemDTO,
+  ClientOrderItemDTO,
 } from '../dto/response.dto';
 
 export class ResponseMapper {
-  static toClientOrderView(order: Order): ClientOrderViewDTO {
-    const dto = new ClientOrderViewDTO();
+  private static assignOrderCore(
+    dto:
+      | ClientOrderViewDTO
+      | OwnerOrderViewDTO
+      | DriverDeliveryViewDTO,
+    order: Order,
+  ) {
     dto.id = order.id;
     dto.status = order.status;
     dto.scheduled_for = order.scheduled_for;
@@ -21,29 +27,11 @@ export class ResponseMapper {
     dto.delivery_fees = Number(order.delivery_fees);
     dto.tax_fees = Number(order.tax_fees || 0);
 
-    if (order.items) {
-      dto.items = order.items.map((item) => {
-        const itemDto = new OrderItemDTO();
-        // Check if food_item is loaded
-        if (item.food_item) {
-          itemDto.food_item_id = item.food_item.id;
-          itemDto.name = item.food_item.name;
-          itemDto.image_url = item.food_item.image_url;
-          itemDto.quantity = item.quantity;
-          itemDto.snapshot_price = Number(item.snapshot_price);
-        }
-        return itemDto;
-      });
-    } else {
-      dto.items = [];
-    }
-
     if (order.kitchen) {
       const kitchenDto = new KitchenSummaryDTO();
       kitchenDto.id = order.kitchen.id;
       kitchenDto.name = order.kitchen.name;
       kitchenDto.is_veg = Boolean(order.kitchen.is_veg);
-      // Handle potential nulls in details
       if (order.kitchen.details) {
         kitchenDto.phone = order.kitchen.details.phone;
         kitchenDto.address = order.kitchen.details.address;
@@ -61,15 +49,63 @@ export class ResponseMapper {
         order.delivery_driver.profile_picture_url ?? null;
       dto.delivery_driver = driverDto;
     }
+  }
 
+  private static mapOwnerOrderItems(order: Order): OrderItemDTO[] {
+    if (!order.items) {
+      return [];
+    }
+    return order.items.map((item) => {
+      const itemDto = new OrderItemDTO();
+      if (item.food_item) {
+        itemDto.food_item_id = item.food_item.id;
+        itemDto.name = item.food_item.name;
+        itemDto.image_url = item.food_item.image_url;
+        itemDto.quantity = item.quantity;
+        itemDto.snapshot_price = Number(item.snapshot_price);
+      }
+      return itemDto;
+    });
+  }
+
+  private static mapClientOrderItems(
+    order: Order,
+    itemStars?: Map<string, number>,
+  ): ClientOrderItemDTO[] {
+    if (!order.items) {
+      return [];
+    }
+    return order.items.map((item) => {
+      const itemDto = new ClientOrderItemDTO();
+      itemDto.order_item_id = item.id;
+      if (item.food_item) {
+        itemDto.food_item_id = item.food_item.id;
+        itemDto.name = item.food_item.name;
+        itemDto.image_url = item.food_item.image_url;
+        itemDto.quantity = item.quantity;
+        itemDto.snapshot_price = Number(item.snapshot_price);
+      }
+      const stars = itemStars?.get(item.id);
+      itemDto.is_rated = stars !== undefined;
+      itemDto.rating = stars !== undefined ? { stars } : null;
+      return itemDto;
+    });
+  }
+
+  static toClientOrderView(
+    order: Order,
+    itemStars?: Map<string, number>,
+  ): ClientOrderViewDTO {
+    const dto = new ClientOrderViewDTO();
+    this.assignOrderCore(dto, order);
+    dto.items = this.mapClientOrderItems(order, itemStars);
     return dto;
   }
 
   static toOwnerOrderView(order: Order): OwnerOrderViewDTO {
     const dto = new OwnerOrderViewDTO();
-    // Copy base properties
-    const base = this.toClientOrderView(order);
-    Object.assign(dto, base);
+    this.assignOrderCore(dto, order);
+    dto.items = this.mapOwnerOrderItems(order);
 
     if (order.client) {
       const clientDto = new UserSummaryDTO();
@@ -88,9 +124,8 @@ export class ResponseMapper {
 
   static toDriverDeliveryView(order: Order): DriverDeliveryViewDTO {
     const dto = new DriverDeliveryViewDTO();
-    // Copy base properties
-    const base = this.toClientOrderView(order);
-    Object.assign(dto, base);
+    this.assignOrderCore(dto, order);
+    dto.items = this.mapOwnerOrderItems(order);
 
     if (order.client) {
       const clientDto = new UserSummaryDTO();

@@ -321,8 +321,6 @@ Example:
     "image_url": "https://nutri.s3.ap-south-1.amazonaws.com/uploads/e41b0fd1.jpg",
     "max_daily_orders": 5,
     "is_available": true,
-    "positive_count": 0,
-    "negative_count": 0,
     "created_at": "2026-02-15T06:37:20.398Z",
     "updated_at": "2026-02-15T06:37:20.398Z"
   }
@@ -573,47 +571,36 @@ Full integration notes (maps SDK keys, decoding polylines, `route_error`, profil
 
 ---
 
-## 5. REVIEWS
+## 5. REVIEWS & RATINGS
 
-Clients can review a food item from an order that has been delivered within the last 24 hours. A user can only write one review per `order_item` (so they review each specific order instance of a food item). 
+Clients give **1–5 star** ratings per **order line** (`order_item_id`). The order must be **`DELIVERED`**. There is **no deadline** after delivery; submitting again for the same line **updates** the stars.
 
-Reviews maintain `positive_count` (Thumbs Up) and `negative_count` (Thumbs Down) for food items.
+**`GET /orders`** and **`GET /orders/:id`** (client) include each line’s **`order_item_id`**, **`is_rated`**, and **`rating`** (`null` or `{ "stars": <1–5> }`).
 
-### 5.1 Add a Review
+Kitchen-wide averages are **not** stored on the kitchen row; use **`GET /restaurants/:kitchenId/stats`** (same id as **`GET /kitchens/:id`**) for aggregates and distribution.
 
-**`POST /reviews`**
+### 5.1 Rate or update a line item
+
+**`POST /orders/:orderId/items/:itemId/rating`**
 
 Requires: `Authorization: Bearer <CLIENT_JWT>`
 
-**Content-Type:** `application/json`
+**`:itemId`** = **`order_item_id`** from the order payload.
 
 **Request Body:**
 ```json
 {
-  "order_item_id": "305f804b-5161-4482-bce1-6fa2e5034d95",
-  "is_positive": true
+  "stars": 5
 }
 ```
 
 **Business Rules:**
 - The order must belong to you
-- The order must be in `DELIVERED` status
-- Cannot be more than 24 hours since delivery time
-- Can only review once per `order_item_id` (`409 Conflict` if duplicated)
+- The line must belong to that order
+- The order must be `DELIVERED`
+- Integer **1–5** only
 
-**Success Response:**
-```json
-{
-  "id": "review-uuid",
-  "client_id": "8f6fdea3-5971-4030-aa92-5d5448d981d0",
-  "kitchen_id": "c282d569-e3a9-4820-ad35-d4093a8b96d8",
-  "food_item_id": "aebf865c-abf8-405b-9e5b-ab4fce869084",
-  "order_id": "d0b9fa9b-66c2-4c9b-9647-91c0019fdc1f",
-  "order_item_id": "305f804b-5161-4482-bce1-6fa2e5034d95",
-  "is_positive": true,
-  "created_at": "2026-03-05T20:10:00.000Z"
-}
-```
+**Success Response:** Review row including `stars`, `created_at`, `updated_at`.
 
 ### 5.2 Get My Reviews
 
@@ -627,13 +614,19 @@ Returns a list of all your created reviews.
 
 **`GET /reviews/food-item/:foodItemId`**
 
-Returns all reviews for a specific food item, ordered by creation date (descending).
+Returns all reviews for a specific food item, ordered by creation date (descending). Each entry includes **`stars`**.
 
 ### 5.4 Get Reviews For a Kitchen
 
 **`GET /reviews/kitchen/:kitchenId`**
 
 Returns all reviews for a specific kitchen.
+
+### 5.5 Restaurant / kitchen stats (public)
+
+**`GET /restaurants/:kitchenId/stats`**
+
+No auth. Returns **`total_orders`** (delivered), **`total_customers`**, **`average_rating`**, **`total_ratings`**, **`rating_distribution`**, and **`top_items`** (items with at least three ratings). See **`docs/api-reference.md`**.
 
 ---
 
