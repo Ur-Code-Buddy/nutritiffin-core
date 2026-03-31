@@ -17,7 +17,8 @@ import { KitchenPayoutsService } from './kitchen-payouts.service';
 import { UpsertKitchenBankDetailsDto } from './dto/upsert-kitchen-bank-details.dto';
 import { KitchenWithdrawDto } from './dto/kitchen-withdraw.dto';
 
-@Controller('api/kitchen')
+// Also `kitchen` so routes work when a reverse proxy strips `/api` before the app (path becomes `/kitchen/...`).
+@Controller(['api/kitchen', 'kitchen'])
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.KITCHEN_OWNER)
 export class KitchenPayoutsController {
