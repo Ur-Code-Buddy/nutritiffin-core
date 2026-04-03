@@ -1,12 +1,24 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AllowedPincode } from './common/entities/allowed-pincode.entity';
 import { RedisService } from './redis/redis.service';
 
-/** Redis value: missing = not under maintenance; "0" = off; else unix ms until maintenance ends */
+/** Redis: missing = not under maintenance; "0" = off; else unix ms until maintenance ends */
 const MAINTENANCE_UNTIL_KEY = 'nutri:maintenance_until';
+/** Unix ms when the maintenance window starts (optional; missing = legacy “already started”). */
+const MAINTENANCE_FROM_KEY = 'nutri:maintenance_from';
+/** "1" = no fixed end (omit hours); response omits concrete `maintenance_ends_at`. */
+const MAINTENANCE_OPEN_ENDED_KEY = 'nutri:maintenance_open_ended';
+
+const FAR_FUTURE_MS = 100 * 365 * 24 * 3600000;
+
+export type MaintenanceStatus = {
+  is_under_maintainance: boolean;
+  maintenance_starts_at: string | null;
+  maintenance_ends_at: string | null;
+};
 
 @Injectable()
 export class AppService implements OnModuleInit {
@@ -77,25 +89,36 @@ export class AppService implements OnModuleInit {
   }
 
   /**
-   * No Redis key → not under maintenance. Optional `hours` / `time` (> 0): true only if maintenance
-   * is on and a scheduled end exists with at least that many hours remaining.
+   * Three independent fields: currently active window, configured start (UTC), configured end (UTC).
+   * Optional `hours` / `time` query (> 0): `is_under_maintainance` true only if a fixed end exists and
+   * at least that many hours remain (unchanged behavior).
    */
-  async getIsUnderMaintenance(hoursFilter?: string): Promise<{
-    is_under_maintainance: boolean;
-    maintenance_ends_at: string | null;
-  }> {
-    const raw = await this.redisService.client.get(MAINTENANCE_UNTIL_KEY);
-    const endsAt = this.parseMaintenanceEndsAt(raw);
-    let is_under_maintainance = this.computeUnderMaintenance(raw);
+  async getIsUnderMaintenance(
+    hoursFilter?: string,
+  ): Promise<MaintenanceStatus> {
+    const rawUntil = await this.redisService.client.get(MAINTENANCE_UNTIL_KEY);
+    const rawFrom = await this.redisService.client.get(MAINTENANCE_FROM_KEY);
+    const openEndedRaw = await this.redisService.client.get(
+      MAINTENANCE_OPEN_ENDED_KEY,
+    );
+    const openEnded = openEndedRaw === '1';
+    const startsAt = this.parseMaintenanceStartsAt(rawFrom);
+    const endsAt = this.parseMaintenanceEndsAtForResponse(
+      rawUntil,
+      openEnded,
+      rawFrom,
+    );
+    let is_under_maintainance = this.computeUnderMaintenance(rawUntil, rawFrom);
     const h = this.parseHoursQuery(hoursFilter);
     if (
       h != null &&
       h > 0 &&
       is_under_maintainance &&
-      raw != null &&
-      raw !== '0'
+      rawUntil != null &&
+      rawUntil !== '0' &&
+      !openEnded
     ) {
-      const until = parseInt(raw, 10);
+      const until = parseInt(rawUntil, 10);
       if (!Number.isNaN(until) && until > Date.now()) {
         const remainingMs = until - Date.now();
         is_under_maintainance = remainingMs >= h * 3600000;
@@ -103,40 +126,53 @@ export class AppService implements OnModuleInit {
     }
     return {
       is_under_maintainance,
+      maintenance_starts_at: startsAt,
       maintenance_ends_at: endsAt,
     };
   }
 
   /**
-   * POST body: `is_under_maintainance` required. When false → off. When true → optional positive `hours`/`time`
-   * (hours wins) for a fixed window; omit or `0` → on until a far-future end (effectively indefinite).
+   * POST: when true, optional `starts_at` (UTC ISO) sets when the window begins; optional positive
+   * `hours`/`time` (hours wins) sets a fixed length from that start. Omit duration → open-ended after start.
    */
   async setIsUnderMaintenance(input: {
     is_under_maintainance: boolean;
+    starts_at?: string;
     hours?: number;
     time?: number;
-  }): Promise<{
-    is_under_maintainance: boolean;
-    maintenance_ends_at: string | null;
-  }> {
+  }): Promise<MaintenanceStatus> {
     if (!input.is_under_maintainance) {
-      await this.redisService.client.set(MAINTENANCE_UNTIL_KEY, '0');
-      return { is_under_maintainance: false, maintenance_ends_at: null };
+      await this.clearMaintenanceKeys();
+      return {
+        is_under_maintainance: false,
+        maintenance_starts_at: null,
+        maintenance_ends_at: null,
+      };
     }
+    const fromMs = this.resolveMaintenanceStartMs(input.starts_at);
     const h = this.resolveBodyHours(input.hours, input.time);
     if (h != null && h > 0) {
-      const until = Date.now() + h * 3600000;
+      const until = fromMs + h * 3600000;
       await this.redisService.client.set(MAINTENANCE_UNTIL_KEY, String(until));
+      await this.redisService.client.set(MAINTENANCE_FROM_KEY, String(fromMs));
+      await this.redisService.client.del(MAINTENANCE_OPEN_ENDED_KEY);
       return {
-        is_under_maintainance: true,
+        is_under_maintainance: this.computeUnderMaintenance(
+          String(until),
+          String(fromMs),
+        ),
+        maintenance_starts_at: new Date(fromMs).toISOString(),
         maintenance_ends_at: new Date(until).toISOString(),
       };
     }
-    const far = String(Date.now() + 100 * 365 * 24 * 3600000);
+    const far = String(fromMs + FAR_FUTURE_MS);
     await this.redisService.client.set(MAINTENANCE_UNTIL_KEY, far);
+    await this.redisService.client.set(MAINTENANCE_FROM_KEY, String(fromMs));
+    await this.redisService.client.set(MAINTENANCE_OPEN_ENDED_KEY, '1');
     return {
-      is_under_maintainance: true,
-      maintenance_ends_at: new Date(parseInt(far, 10)).toISOString(),
+      is_under_maintainance: this.computeUnderMaintenance(far, String(fromMs)),
+      maintenance_starts_at: new Date(fromMs).toISOString(),
+      maintenance_ends_at: null,
     };
   }
 
@@ -146,19 +182,66 @@ export class AppService implements OnModuleInit {
     return raw;
   }
 
-  private parseMaintenanceEndsAt(raw: string | null): string | null {
-    if (raw == null || raw === '0') return null;
-    const until = parseInt(raw, 10);
+  private async clearMaintenanceKeys(): Promise<void> {
+    await this.redisService.client.del(
+      MAINTENANCE_UNTIL_KEY,
+      MAINTENANCE_FROM_KEY,
+      MAINTENANCE_OPEN_ENDED_KEY,
+    );
+  }
+
+  private resolveMaintenanceStartMs(startsAt?: string): number {
+    if (startsAt == null || String(startsAt).trim() === '') {
+      return Date.now();
+    }
+    const ms = Date.parse(startsAt);
+    if (Number.isNaN(ms)) {
+      throw new BadRequestException(
+        'starts_at must be a valid ISO 8601 datetime',
+      );
+    }
+    return ms;
+  }
+
+  private parseMaintenanceStartsAt(raw: string | null): string | null {
+    if (raw == null || raw === '') return null;
+    const from = parseInt(raw, 10);
+    if (Number.isNaN(from)) return null;
+    return new Date(from).toISOString();
+  }
+
+  /** Concrete end instant for clients; null when off, open-ended, or legacy far-future indefinite. */
+  private parseMaintenanceEndsAtForResponse(
+    rawUntil: string | null,
+    openEnded: boolean,
+    rawFrom?: string | null,
+  ): string | null {
+    if (rawUntil == null || rawUntil === '0' || openEnded) return null;
+    const until = parseInt(rawUntil, 10);
     if (Number.isNaN(until)) return null;
+    // Before we stored `open_ended`, indefinite mode used only a far-future `until`.
+    const noFrom = rawFrom == null || rawFrom === '';
+    if (noFrom && until - Date.now() > 10 * 365 * 24 * 3600000) {
+      return null;
+    }
     return new Date(until).toISOString();
   }
 
-  private computeUnderMaintenance(raw: string | null): boolean {
-    if (raw == null) return false;
-    if (raw === '0') return false;
-    const until = parseInt(raw, 10);
+  private computeUnderMaintenance(
+    rawUntil: string | null,
+    rawFrom?: string | null,
+  ): boolean {
+    if (rawUntil == null) return false;
+    if (rawUntil === '0') return false;
+    const until = parseInt(rawUntil, 10);
     if (Number.isNaN(until)) return false;
-    return Date.now() < until;
+    const now = Date.now();
+    if (now >= until) return false;
+    if (rawFrom != null && rawFrom !== '') {
+      const from = parseInt(rawFrom, 10);
+      if (!Number.isNaN(from) && now < from) return false;
+    }
+    return true;
   }
 
   private parseHoursQuery(q?: string): number | null {

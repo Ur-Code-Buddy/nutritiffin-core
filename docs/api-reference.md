@@ -1115,38 +1115,46 @@ Returns the current platform-wide charges and fees.
 
 **GET** `/is_under_maintainance`
 
-Public. Returns whether the app should treat the platform as under maintenance (for splash screens, read-only banners, etc.). State is stored in Redis under `nutri:maintenance_until`.
+Public. Returns maintenance state for splash screens, read-only banners, etc. Redis keys: `nutri:maintenance_until` (end instant, ms), optional `nutri:maintenance_from` (start instant, ms), and `nutri:maintenance_open_ended` when there is no fixed duration.
+
+The response has **three independent fields**:
+
+| Field                     | Type             | Description                                                                                                                                                                                                 |
+| ------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `is_under_maintainance`   | boolean          | `true` only while the current time is inside the window: after the stored start (if any) and before the stored end. `false` before a future `starts_at`, after the window ends, or when maintenance is off. |
+| `maintenance_starts_at`   | string \| `null` | ISO 8601 (UTC) when the window **starts**, if the backend stored a start time. `null` for older Redis data that only had an end time, or when maintenance is off.                                            |
+| `maintenance_ends_at`     | string \| `null` | ISO 8601 (UTC) when the window **ends**, only when a **fixed length** was set (`hours` / `time` > 0 on **POST**). `null` when off, **open-ended** (no duration), or legacy indefinite-only storage.         |
 
 **Query parameters (optional):**
 
+| Field   | Type   | Required | Description                                                                                                                                                                                                 |
+| ------- | ------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hours` | number | No       | If **> 0**, `is_under_maintainance` is `true` only when the window is active **and** a fixed end exists with **at least** that many hours remaining. Ignored for open-ended windows (no fixed end in Redis). |
+| `time`  | number | No       | Same as `hours`; use one or the other; `hours` wins if both are sent.                                                                                                                                       |
 
-| Field   | Type   | Required | Description                                                                                                                                                                                                                                                                 |
-| ------- | ------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `hours` | number | No       | If **greater than 0**, the response is `true` only when maintenance is on **and** a scheduled end exists with **at least** that many hours remaining. If maintenance is on with a very long / indefinite end (POST with no duration), the flag stays `true` for this check. |
-| `time`  | number | No       | Same meaning as `hours` (use one or the other; `hours` wins if both are sent).                                                                                                                                                                                              |
-
-
-**Default when Redis has no key:** `is_under_maintainance` is `**false`** (normal operation) until an admin turns maintenance on via **POST**.
+**Default when Redis has no maintenance keys:** `is_under_maintainance` is `false` (normal operation) until an admin turns maintenance on via **POST**.
 
 **Response (example when off):**
 
 ```json
 {
   "is_under_maintainance": false,
+  "maintenance_starts_at": null,
   "maintenance_ends_at": null
 }
 ```
 
-**Response (example when on with a scheduled end):**
+**Response (example when on with a fixed end, e.g. 2 hours from a defined start):**
 
 ```json
 {
   "is_under_maintainance": true,
-  "maintenance_ends_at": "2026-03-24T12:00:00.000Z"
+  "maintenance_starts_at": "2026-04-03T16:00:00.000Z",
+  "maintenance_ends_at": "2026-04-03T18:00:00.000Z"
 }
 ```
 
-- `maintenance_ends_at` is `null` when maintenance is off. When on via **POST** without a specific hour count, the backend still stores a far-future end time, so `maintenance_ends_at` may be a distant ISO timestamp.
+**Response (example when scheduled but not started yet):** `is_under_maintainance` is `false` until `maintenance_starts_at`, while the start/end instants are still returned so clients can show a countdown.
 
 ---
 
@@ -1154,19 +1162,18 @@ Public. Returns whether the app should treat the platform as under maintenance (
 
 **Role required:** `ADMIN` (JWT `Authorization: Bearer …`).
 
-Sets maintenance mode in Redis.
+Sets maintenance mode in Redis (clears all related keys when turning off).
 
 **Content-Type:** `application/json`
 
 **Request body:**
 
-
-| Field                   | Type    | Required | Description                                                                                                                                                                                 |
-| ----------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `is_under_maintainance` | boolean | **Yes**  | `false` → maintenance **off**. `true` → maintenance **on** (see optional duration below).                                                                                                   |
-| `hours`                 | number  | No       | When `is_under_maintainance` is `true`: if **> 0**, maintenance lasts that many hours from now. Omit or `**0`** → on until a far-future end (effectively indefinite). Ignored when `false`. |
-| `time`                  | number  | No       | Same as `hours`; `**hours` wins** if both are sent.                                                                                                                                         |
-
+| Field                   | Type    | Required | Description                                                                                                                                                                                                 |
+| ----------------------- | ------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `is_under_maintainance` | boolean | **Yes**  | `false` → maintenance **off**. `true` → maintenance **on** (see `starts_at` and duration below).                                                                                                            |
+| `starts_at`             | string  | No       | When `true`: ISO 8601 datetime for when the window **starts** (use a `Z` suffix or offset for UTC). Omit → **now**. Can be in the future to schedule maintenance.                                           |
+| `hours`                 | number  | No       | When `true`: if **> 0**, maintenance lasts that many hours **from `starts_at`** (or from now if `starts_at` is omitted). Omit or `0` → **open-ended** after start: `maintenance_ends_at` in responses is `null`. |
+| `time`                  | number  | No       | Same as `hours`; `hours` wins if both are sent.                                                                                                                                                             |
 
 **Examples**
 
@@ -1176,19 +1183,38 @@ Turn maintenance off:
 { "is_under_maintainance": false }
 ```
 
-Turn maintenance on for 3 hours:
+Maintenance **from** a UTC instant **for** 2 hours:
+
+```json
+{
+  "is_under_maintainance": true,
+  "starts_at": "2026-04-03T16:00:00.000Z",
+  "hours": 2
+}
+```
+
+Maintenance **from** 4pm UTC with **no** fixed duration (open-ended after that start):
+
+```json
+{
+  "is_under_maintainance": true,
+  "starts_at": "2026-04-03T16:00:00.000Z"
+}
+```
+
+Immediate maintenance for 3 hours (no `starts_at`):
 
 ```json
 { "is_under_maintainance": true, "hours": 3 }
 ```
 
-Turn maintenance on with no fixed duration (stored as a long default end time):
+Immediate open-ended maintenance:
 
 ```json
 { "is_under_maintainance": true }
 ```
 
-**Response:** Same shape as **GET** (`is_under_maintainance`, `maintenance_ends_at`) reflecting the state after the update.
+**Response:** Same shape as **GET** (three fields above), reflecting state **after** the update.
 
 ### Health Check
 
